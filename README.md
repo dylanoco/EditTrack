@@ -1,2 +1,15 @@
-# EditTrack
-A Web Based Application that helps editors track their deliverables for clients with features catered towards their niche, optimising workflow.
+# Editor Tracker
+
+**Income + workflow tracker for video editors.**  
+Tracks deliverables, clients, prices → auto‑totals.
+
+## Quick Start
+
+```bash
+# Backend (Railway auto-deploys)
+git push → live API + Postgres
+
+# Frontend (local dev)
+cd frontend
+npm install
+npm run dev
