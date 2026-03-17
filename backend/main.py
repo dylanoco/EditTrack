@@ -7,9 +7,9 @@ from fastapi import Depends, FastAPI, HTTPException, Query
 from sqlalchemy import event, select
 from sqlalchemy.orm import Session
 
-from .database import engine, get_db
-from .models import Base, Client, Deliverable, Source
-from .schemas import (
+from database import engine, get_db
+from models import Base, Client, Deliverable, Source
+from schemas import (
     ClientCreate,
     ClientRead,
     DeliverableCreate,
