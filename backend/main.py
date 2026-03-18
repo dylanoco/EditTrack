@@ -141,6 +141,8 @@ def create_deliverable(
     client = db.get(Client, payload.client_id)
     if not client:
         raise HTTPException(status_code=400, detail="Client does not exist")
+    if client.archived:
+        raise HTTPException(status_code=400, detail="Client is archived")
 
     if payload.source_id is not None:
         source = db.get(Source, payload.source_id)
@@ -174,7 +176,13 @@ def list_deliverables(
     archived: bool = Query(False, description="If True, return only archived deliverables"),
     db: Session = Depends(get_db),
 ) -> List[Deliverable]:
-    stmt = select(Deliverable).where(Deliverable.archived == archived)
+    # Hide deliverables when their client is archived
+    stmt = (
+        select(Deliverable)
+        .join(Client, Deliverable.client_id == Client.id)
+        .where(Deliverable.archived == archived)
+        .where(Client.archived.is_(False))
+    )
     if client_id is not None:
         stmt = stmt.where(Deliverable.client_id == client_id)
     if status is not None:
@@ -204,6 +212,13 @@ def update_deliverable(
     if not deliverable:
         raise HTTPException(status_code=404, detail="Deliverable not found")
     data = payload.model_dump(exclude_unset=True)
+
+    if "client_id" in data:
+        new_client = db.get(Client, data["client_id"])
+        if not new_client:
+            raise HTTPException(status_code=400, detail="Client does not exist")
+        if new_client.archived:
+            raise HTTPException(status_code=400, detail="Client is archived")
 
     if "price_mode" in data or "price_value" in data:
         price_mode = data.get("price_mode", deliverable.price_mode)
@@ -250,6 +265,7 @@ def billing_totals(
     conditions = [
         Deliverable.price_value.is_not(None),
         Deliverable.archived.is_(False),
+        Client.archived.is_(False),
     ]
     if client_id is not None:
         conditions.append(Deliverable.client_id == client_id)
@@ -277,7 +293,11 @@ def billing_totals(
         0,
     ).label("unpaid_total")
 
-    stmt = select(paid_sum, unpaid_sum).where(and_(*conditions))
+    stmt = (
+        select(paid_sum, unpaid_sum)
+        .join(Client, Deliverable.client_id == Client.id)
+        .where(and_(*conditions))
+    )
     row = db.execute(stmt).one()
 
     result = {"paid_total": float(row.paid_total), "unpaid_total": float(row.unpaid_total)}
