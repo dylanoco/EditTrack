@@ -100,3 +100,10 @@ class InvoiceRead(BaseModel):
     class Config:
         from_attributes = True
 
+
+class InvoiceCreate(BaseModel):
+    client_id: int
+    period_start: date
+    period_end: date
+    label: Optional[str] = None
+

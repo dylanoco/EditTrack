@@ -1,20 +1,22 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import List, Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import event, select
+from sqlalchemy import and_, case, event, exists, func, select
 from sqlalchemy.orm import Session
 
 from database import engine, get_db
-from models import Base, Client, Deliverable, Source
+from models import Base, Client, Deliverable, Invoice, InvoiceItem, Source
 from schemas import (
     ClientCreate,
     ClientRead,
     DeliverableCreate,
     DeliverableRead,
+    InvoiceCreate,
+    InvoiceRead,
     SourceCreate,
     SourceRead,
 )
@@ -166,4 +168,170 @@ def get_deliverable(deliverable_id: int, db: Session = Depends(get_db)) -> Deliv
     if not deliverable:
         raise HTTPException(status_code=404, detail="Deliverable not found")
     return deliverable
+
+
+# --- Billing / Invoices ---
+
+
+def _deliverable_period_expr():
+    # Use completed_at when available; otherwise created_at
+    return func.coalesce(Deliverable.completed_at, Deliverable.created_at)
+
+
+@app.get("/billing/totals")
+def billing_totals(
+    client_id: Optional[int] = Query(default=None),
+    period_start: Optional[date] = Query(default=None),
+    period_end: Optional[date] = Query(default=None),
+    db: Session = Depends(get_db),
+) -> dict:
+    dts = _deliverable_period_expr()
+
+    conditions = [Deliverable.price_value.is_not(None)]
+    if client_id is not None:
+        conditions.append(Deliverable.client_id == client_id)
+    if period_start is not None:
+        conditions.append(func.date(dts) >= period_start)
+    if period_end is not None:
+        conditions.append(func.date(dts) <= period_end)
+
+    paid_sum = func.coalesce(
+        func.sum(
+            case((Deliverable.payment_status == "paid", Deliverable.price_value), else_=0)
+        ),
+        0,
+    ).label("paid_total")
+    unpaid_sum = func.coalesce(
+        func.sum(
+            case(
+                (
+                    Deliverable.payment_status.in_(["unpaid", "partial"]),
+                    Deliverable.price_value,
+                ),
+                else_=0,
+            )
+        ),
+        0,
+    ).label("unpaid_total")
+
+    stmt = select(paid_sum, unpaid_sum).where(and_(*conditions))
+    row = db.execute(stmt).one()
+
+    result = {"paid_total": float(row.paid_total), "unpaid_total": float(row.unpaid_total)}
+
+    if client_id is None:
+        by_client_stmt = (
+            select(
+                Client.id.label("client_id"),
+                Client.name.label("client_name"),
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (Deliverable.payment_status == "paid", Deliverable.price_value),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label("paid_total"),
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (
+                                Deliverable.payment_status.in_(["unpaid", "partial"]),
+                                Deliverable.price_value,
+                            ),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label("unpaid_total"),
+            )
+            .join(Deliverable, Deliverable.client_id == Client.id)
+            .where(and_(*conditions))
+            .group_by(Client.id, Client.name)
+            .order_by(Client.name.asc())
+        )
+        rows = db.execute(by_client_stmt).all()
+        result["by_client"] = [
+            {
+                "client_id": r.client_id,
+                "client_name": r.client_name,
+                "paid_total": float(r.paid_total),
+                "unpaid_total": float(r.unpaid_total),
+            }
+            for r in rows
+        ]
+
+    return result
+
+
+@app.post("/invoices", response_model=InvoiceRead)
+def create_invoice(payload: InvoiceCreate, db: Session = Depends(get_db)) -> Invoice:
+    client = db.get(Client, payload.client_id)
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+
+    if payload.period_start > payload.period_end:
+        raise HTTPException(status_code=400, detail="period_start must be <= period_end")
+
+    dts = _deliverable_period_expr()
+
+    already_invoiced = exists(
+        select(1).where(InvoiceItem.deliverable_id == Deliverable.id)
+    )
+
+    deliverables_stmt = (
+        select(Deliverable)
+        .where(Deliverable.client_id == payload.client_id)
+        .where(Deliverable.price_value.is_not(None))
+        .where(func.date(dts) >= payload.period_start)
+        .where(func.date(dts) <= payload.period_end)
+        .where(~already_invoiced)
+        .order_by(dts.asc(), Deliverable.id.asc())
+    )
+    deliverables = db.scalars(deliverables_stmt).all()
+
+    if not deliverables:
+        raise HTTPException(status_code=400, detail="No eligible deliverables found in that date range")
+
+    label = payload.label
+    if not label:
+        label = f"{payload.period_start.isoformat()} to {payload.period_end.isoformat()}"
+
+    total_amount = float(sum(float(d.price_value) for d in deliverables if d.price_value is not None))
+
+    invoice = Invoice(
+        client_id=payload.client_id,
+        period_start=payload.period_start,
+        period_end=payload.period_end,
+        label=label,
+        total_amount=total_amount,
+        status="unpaid",
+    )
+    db.add(invoice)
+    db.flush()
+
+    for d in deliverables:
+        db.add(
+            InvoiceItem(
+                invoice_id=invoice.id,
+                deliverable_id=d.id,
+                amount=float(d.price_value),
+            )
+        )
+
+    db.commit()
+    db.refresh(invoice)
+    return invoice
+
+
+@app.get("/invoices", response_model=List[InvoiceRead])
+def list_invoices(
+    client_id: Optional[int] = Query(default=None),
+    db: Session = Depends(get_db),
+) -> List[Invoice]:
+    stmt = select(Invoice).order_by(Invoice.created_at.desc())
+    if client_id is not None:
+        stmt = stmt.where(Invoice.client_id == client_id)
+    return db.scalars(stmt).all()
 

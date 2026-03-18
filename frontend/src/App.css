@@ -188,6 +188,33 @@ select {
   max-width: 120px;
 }
 
+.subhead {
+  margin: 18px 0 10px;
+  font: 600 14px/1.2 var(--heading);
+  color: var(--text-h);
+}
+
+.totalsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 10px 0 8px;
+}
+
+.totalCard {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+}
+
+.totalValue {
+  margin-top: 6px;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
 @media (max-width: 720px) {
   .grid2 {
     grid-template-columns: 1fr;
@@ -197,5 +224,9 @@ select {
   }
   .tabs {
     display: none;
+  }
+
+  .totalsGrid {
+    grid-template-columns: 1fr;
   }
 }

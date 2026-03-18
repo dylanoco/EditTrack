@@ -43,3 +43,23 @@ export async function createDeliverable(payload) {
   return request('/deliverables', { method: 'POST', body: payload })
 }
 
+export async function fetchBillingTotals(params = {}) {
+  const qs = new URLSearchParams()
+  if (params.client_id) qs.set('client_id', String(params.client_id))
+  if (params.period_start) qs.set('period_start', params.period_start)
+  if (params.period_end) qs.set('period_end', params.period_end)
+  const suffix = qs.toString() ? `?${qs.toString()}` : ''
+  return request(`/billing/totals${suffix}`)
+}
+
+export async function fetchInvoices(params = {}) {
+  const qs = new URLSearchParams()
+  if (params.client_id) qs.set('client_id', String(params.client_id))
+  const suffix = qs.toString() ? `?${qs.toString()}` : ''
+  return request(`/invoices${suffix}`)
+}
+
+export async function createInvoice(payload) {
+  return request('/invoices', { method: 'POST', body: payload })
+}
+
