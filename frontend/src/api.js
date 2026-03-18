@@ -21,12 +21,19 @@ async function request(path, { method = 'GET', body } = {}) {
   return data
 }
 
-export async function fetchClients() {
-  return request('/clients')
+export async function fetchClients(params = {}) {
+  const qs = new URLSearchParams()
+  if (params.archived !== undefined) qs.set('archived', String(params.archived))
+  const suffix = qs.toString() ? `?${qs.toString()}` : ''
+  return request(`/clients${suffix}`)
 }
 
 export async function createClient(payload) {
   return request('/clients', { method: 'POST', body: payload })
+}
+
+export async function updateClient(id, payload) {
+  return request(`/clients/${id}`, { method: 'PATCH', body: payload })
 }
 
 export async function fetchDeliverables(params = {}) {
@@ -34,6 +41,7 @@ export async function fetchDeliverables(params = {}) {
   if (params.client_id) qs.set('client_id', String(params.client_id))
   if (params.status) qs.set('status', params.status)
   if (params.deliverable_type) qs.set('deliverable_type', params.deliverable_type)
+  if (params.archived !== undefined) qs.set('archived', String(params.archived))
 
   const suffix = qs.toString() ? `?${qs.toString()}` : ''
   return request(`/deliverables${suffix}`)
@@ -41,6 +49,10 @@ export async function fetchDeliverables(params = {}) {
 
 export async function createDeliverable(payload) {
   return request('/deliverables', { method: 'POST', body: payload })
+}
+
+export async function updateDeliverable(id, payload) {
+  return request(`/deliverables/${id}`, { method: 'PATCH', body: payload })
 }
 
 export async function fetchBillingTotals(params = {}) {

@@ -4,6 +4,7 @@ from datetime import datetime, date
 from typing import Optional, Dict, Any, List
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     Date,
     DateTime,
@@ -32,6 +33,7 @@ class Client(Base):
     price_thumbnail: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
     price_video: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
     notes: Mapped[Optional[str]] = mapped_column(Text)
+    archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     deliverables: Mapped[List["Deliverable"]] = relationship(back_populates="client")
     sources: Mapped[List["Source"]] = relationship(back_populates="client")
@@ -139,6 +141,7 @@ class Deliverable(Base):
         back_populates="deliverable",
     )
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     __table_args__ = (
         CheckConstraint("status IN ('complete','incomplete')", name="chk_deliv_status"),

@@ -154,6 +154,19 @@ select {
 .row {
   display: flex;
   justify-content: flex-end;
+  gap: 8px;
+  align-items: center;
+}
+
+.smallBtn {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.editForm {
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
 }
 
 .tableWrap {

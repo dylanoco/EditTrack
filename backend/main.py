@@ -13,8 +13,10 @@ from models import Base, Client, Deliverable, Invoice, InvoiceItem, Source
 from schemas import (
     ClientCreate,
     ClientRead,
+    ClientUpdate,
     DeliverableCreate,
     DeliverableRead,
+    DeliverableUpdate,
     InvoiceCreate,
     InvoiceRead,
     SourceCreate,
@@ -60,8 +62,12 @@ def create_client(payload: ClientCreate, db: Session = Depends(get_db)) -> Clien
 
 
 @app.get("/clients", response_model=List[ClientRead])
-def list_clients(db: Session = Depends(get_db)) -> List[Client]:
-    return db.scalars(select(Client)).all()
+def list_clients(
+    archived: bool = Query(False, description="If True, return only archived clients"),
+    db: Session = Depends(get_db),
+) -> List[Client]:
+    stmt = select(Client).where(Client.archived == archived).order_by(Client.name.asc())
+    return db.scalars(stmt).all()
 
 
 @app.get("/clients/{client_id}", response_model=ClientRead)
@@ -69,6 +75,23 @@ def get_client(client_id: int, db: Session = Depends(get_db)) -> Client:
     client = db.get(Client, client_id)
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
+    return client
+
+
+@app.patch("/clients/{client_id}", response_model=ClientRead)
+def update_client(
+    client_id: int,
+    payload: ClientUpdate,
+    db: Session = Depends(get_db),
+) -> Client:
+    client = db.get(Client, client_id)
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+    data = payload.model_dump(exclude_unset=True)
+    for k, v in data.items():
+        setattr(client, k, v)
+    db.commit()
+    db.refresh(client)
     return client
 
 
@@ -148,9 +171,10 @@ def list_deliverables(
     client_id: Optional[int] = Query(default=None),
     status: Optional[str] = Query(default=None),
     type: Optional[str] = Query(default=None, alias="deliverable_type"),
+    archived: bool = Query(False, description="If True, return only archived deliverables"),
     db: Session = Depends(get_db),
 ) -> List[Deliverable]:
-    stmt = select(Deliverable)
+    stmt = select(Deliverable).where(Deliverable.archived == archived)
     if client_id is not None:
         stmt = stmt.where(Deliverable.client_id == client_id)
     if status is not None:
@@ -167,6 +191,42 @@ def get_deliverable(deliverable_id: int, db: Session = Depends(get_db)) -> Deliv
     deliverable = db.get(Deliverable, deliverable_id)
     if not deliverable:
         raise HTTPException(status_code=404, detail="Deliverable not found")
+    return deliverable
+
+
+@app.patch("/deliverables/{deliverable_id}", response_model=DeliverableRead)
+def update_deliverable(
+    deliverable_id: int,
+    payload: DeliverableUpdate,
+    db: Session = Depends(get_db),
+) -> Deliverable:
+    deliverable = db.get(Deliverable, deliverable_id)
+    if not deliverable:
+        raise HTTPException(status_code=404, detail="Deliverable not found")
+    data = payload.model_dump(exclude_unset=True)
+
+    if "price_mode" in data or "price_value" in data:
+        price_mode = data.get("price_mode", deliverable.price_mode)
+        if price_mode == "auto":
+            client = db.get(Client, deliverable.client_id)
+            if client:
+                if deliverable.type == "short":
+                    data["price_value"] = float(client.price_short)
+                elif deliverable.type == "thumbnail":
+                    data["price_value"] = float(client.price_thumbnail)
+                elif deliverable.type == "video":
+                    data["price_value"] = float(client.price_video)
+        elif price_mode == "override":
+            if data.get("price_value") is None and deliverable.price_value is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail="price_value is required when price_mode is override",
+                )
+
+    for k, v in data.items():
+        setattr(deliverable, k, v)
+    db.commit()
+    db.refresh(deliverable)
     return deliverable
 
 
@@ -187,7 +247,10 @@ def billing_totals(
 ) -> dict:
     dts = _deliverable_period_expr()
 
-    conditions = [Deliverable.price_value.is_not(None)]
+    conditions = [
+        Deliverable.price_value.is_not(None),
+        Deliverable.archived.is_(False),
+    ]
     if client_id is not None:
         conditions.append(Deliverable.client_id == client_id)
     if period_start is not None:
@@ -220,6 +283,7 @@ def billing_totals(
     result = {"paid_total": float(row.paid_total), "unpaid_total": float(row.unpaid_total)}
 
     if client_id is None:
+        by_client_conditions = conditions + [Client.archived.is_(False)]
         by_client_stmt = (
             select(
                 Client.id.label("client_id"),
@@ -247,7 +311,7 @@ def billing_totals(
                 ).label("unpaid_total"),
             )
             .join(Deliverable, Deliverable.client_id == Client.id)
-            .where(and_(*conditions))
+            .where(and_(*by_client_conditions))
             .group_by(Client.id, Client.name)
             .order_by(Client.name.asc())
         )
@@ -270,6 +334,8 @@ def create_invoice(payload: InvoiceCreate, db: Session = Depends(get_db)) -> Inv
     client = db.get(Client, payload.client_id)
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
+    if client.archived:
+        raise HTTPException(status_code=400, detail="Cannot create invoice for archived client")
 
     if payload.period_start > payload.period_end:
         raise HTTPException(status_code=400, detail="period_start must be <= period_end")
@@ -284,6 +350,7 @@ def create_invoice(payload: InvoiceCreate, db: Session = Depends(get_db)) -> Inv
         select(Deliverable)
         .where(Deliverable.client_id == payload.client_id)
         .where(Deliverable.price_value.is_not(None))
+        .where(Deliverable.archived.is_(False))
         .where(func.date(dts) >= payload.period_start)
         .where(func.date(dts) <= payload.period_end)
         .where(~already_invoiced)
@@ -328,9 +395,12 @@ def create_invoice(payload: InvoiceCreate, db: Session = Depends(get_db)) -> Inv
 @app.get("/invoices", response_model=List[InvoiceRead])
 def list_invoices(
     client_id: Optional[int] = Query(default=None),
+    include_archived_clients: bool = Query(False, description="Include invoices for archived clients"),
     db: Session = Depends(get_db),
 ) -> List[Invoice]:
-    stmt = select(Invoice).order_by(Invoice.created_at.desc())
+    stmt = select(Invoice).join(Client, Invoice.client_id == Client.id).order_by(Invoice.created_at.desc())
+    if not include_archived_clients:
+        stmt = stmt.where(Client.archived.is_(False))
     if client_id is not None:
         stmt = stmt.where(Invoice.client_id == client_id)
     return db.scalars(stmt).all()

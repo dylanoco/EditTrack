@@ -8,6 +8,8 @@ import {
   fetchClients,
   fetchDeliverables,
   fetchInvoices,
+  updateClient,
+  updateDeliverable,
 } from './api.js'
 
 function App() {
@@ -17,8 +19,12 @@ function App() {
 
   const [clients, setClients] = useState([])
   const [deliverables, setDeliverables] = useState([])
+  const [archivedClients, setArchivedClients] = useState([])
+  const [archivedDeliverables, setArchivedDeliverables] = useState([])
   const [invoices, setInvoices] = useState([])
   const [billingTotals, setBillingTotals] = useState(null)
+  const [editingClientId, setEditingClientId] = useState(null)
+  const [editingDeliverableId, setEditingDeliverableId] = useState(null)
 
   const [clientForm, setClientForm] = useState({
     name: '',
@@ -32,6 +38,28 @@ function App() {
   })
 
   const [deliverableForm, setDeliverableForm] = useState({
+    client_id: '',
+    type: 'short',
+    title: '',
+    description: '',
+    source_url: '',
+    status: 'incomplete',
+    price_mode: 'auto',
+    price_value: '',
+  })
+
+  const [clientEditForm, setClientEditForm] = useState({
+    name: '',
+    twitch: '',
+    youtube: '',
+    discord: '',
+    price_short: 20,
+    price_thumbnail: 10,
+    price_video: 50,
+    notes: '',
+  })
+
+  const [deliverableEditForm, setDeliverableEditForm] = useState({
     client_id: '',
     type: 'short',
     title: '',
@@ -62,17 +90,24 @@ function App() {
 
   const clientById = useMemo(() => {
     const m = new Map()
-    for (const c of clients) m.set(String(c.id), c)
+    for (const c of [...clients, ...archivedClients]) m.set(String(c.id), c)
     return m
-  }, [clients])
+  }, [clients, archivedClients])
 
   async function refreshAll() {
     setError(null)
     setLoading(true)
     try {
-      const [c, d] = await Promise.all([fetchClients(), fetchDeliverables()])
+      const [c, d, ac, ad] = await Promise.all([
+        fetchClients(),
+        fetchDeliverables(),
+        fetchClients({ archived: true }),
+        fetchDeliverables({ archived: true }),
+      ])
       setClients(c)
       setDeliverables(d)
+      setArchivedClients(ac)
+      setArchivedDeliverables(ad)
       if (c.length && !deliverableForm.client_id) {
         setDeliverableForm((f) => ({ ...f, client_id: String(c[0].id) }))
       }
@@ -158,6 +193,64 @@ function App() {
     }
   }
 
+  function openClientEdit(c) {
+    setEditingClientId(c.id)
+    setClientEditForm({
+      name: c.name ?? '',
+      twitch: (c.socials && c.socials.twitch) ?? '',
+      youtube: (c.socials && c.socials.youtube) ?? '',
+      discord: (c.socials && c.socials.discord) ?? '',
+      price_short: Number(c.price_short) ?? 20,
+      price_thumbnail: Number(c.price_thumbnail) ?? 10,
+      price_video: Number(c.price_video) ?? 50,
+      notes: c.notes ?? '',
+    })
+  }
+
+  async function onUpdateClient(e) {
+    e.preventDefault()
+    if (!editingClientId) return
+    setError(null)
+    try {
+      const socials = {}
+      if (clientEditForm.twitch?.trim()) socials.twitch = clientEditForm.twitch.trim()
+      if (clientEditForm.youtube?.trim()) socials.youtube = clientEditForm.youtube.trim()
+      if (clientEditForm.discord?.trim()) socials.discord = clientEditForm.discord.trim()
+      await updateClient(editingClientId, {
+        name: clientEditForm.name.trim(),
+        price_short: Number(clientEditForm.price_short),
+        price_thumbnail: Number(clientEditForm.price_thumbnail),
+        price_video: Number(clientEditForm.price_video),
+        notes: clientEditForm.notes?.trim() || null,
+        socials: Object.keys(socials).length ? socials : null,
+      })
+      await refreshAll()
+      setEditingClientId(null)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }
+
+  async function archiveClient(id) {
+    setError(null)
+    try {
+      await updateClient(id, { archived: true })
+      await refreshAll()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }
+
+  async function restoreClient(id) {
+    setError(null)
+    try {
+      await updateClient(id, { archived: false })
+      await refreshAll()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }
+
   async function onCreateDeliverable(e) {
     e.preventDefault()
     setError(null)
@@ -189,6 +282,67 @@ function App() {
         source_url: '',
         price_value: '',
       }))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }
+
+  function openDeliverableEdit(d) {
+    setEditingDeliverableId(d.id)
+    setDeliverableEditForm({
+      client_id: String(d.client_id),
+      type: d.type ?? 'short',
+      title: d.title ?? '',
+      description: d.description ?? '',
+      source_url: d.source_url ?? '',
+      status: d.status ?? 'incomplete',
+      price_mode: d.price_mode ?? 'auto',
+      price_value: d.price_value != null ? String(d.price_value) : '',
+    })
+  }
+
+  async function onUpdateDeliverable(e) {
+    e.preventDefault()
+    if (!editingDeliverableId) return
+    setError(null)
+    try {
+      const payload = {
+        client_id: Number(deliverableEditForm.client_id),
+        type: deliverableEditForm.type,
+        title: deliverableEditForm.title.trim(),
+        description: deliverableEditForm.description?.trim() || null,
+        source_url: deliverableEditForm.source_url?.trim() || null,
+        status: deliverableEditForm.status,
+        price_mode: deliverableEditForm.price_mode,
+      }
+      if (payload.price_mode === 'override') {
+        const val = deliverableEditForm.price_value
+        if (val === '' || val == null) throw new Error('Manual price required when using override')
+        payload.price_value = Number(val)
+      }
+      await updateDeliverable(editingDeliverableId, payload)
+      await refreshAll()
+      setEditingDeliverableId(null)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }
+
+  async function archiveDeliverable(id) {
+    setError(null)
+    try {
+      await updateDeliverable(id, { archived: true })
+      await refreshAll()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }
+
+  async function restoreDeliverable(id) {
+    setError(null)
+    try {
+      await updateDeliverable(id, { archived: false })
+      await refreshAll()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     }
@@ -373,6 +527,85 @@ function App() {
               </div>
             </form>
 
+            {editingClientId ? (
+              <form className="form editForm" onSubmit={onUpdateClient}>
+                <h3 className="subhead">Edit client</h3>
+                <div className="grid2">
+                  <label>
+                    <div className="label">Name</div>
+                    <input
+                      value={clientEditForm.name}
+                      onChange={(e) => setClientEditForm((f) => ({ ...f, name: e.target.value }))}
+                      required
+                    />
+                  </label>
+                  <label>
+                    <div className="label">Notes</div>
+                    <input
+                      value={clientEditForm.notes}
+                      onChange={(e) => setClientEditForm((f) => ({ ...f, notes: e.target.value }))}
+                    />
+                  </label>
+                  <label>
+                    <div className="label">Twitch</div>
+                    <input
+                      value={clientEditForm.twitch}
+                      onChange={(e) => setClientEditForm((f) => ({ ...f, twitch: e.target.value }))}
+                    />
+                  </label>
+                  <label>
+                    <div className="label">YouTube</div>
+                    <input
+                      value={clientEditForm.youtube}
+                      onChange={(e) => setClientEditForm((f) => ({ ...f, youtube: e.target.value }))}
+                    />
+                  </label>
+                  <label>
+                    <div className="label">Discord</div>
+                    <input
+                      value={clientEditForm.discord}
+                      onChange={(e) => setClientEditForm((f) => ({ ...f, discord: e.target.value }))}
+                    />
+                  </label>
+                  <label>
+                    <div className="label">Price: Short</div>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={clientEditForm.price_short}
+                      onChange={(e) => setClientEditForm((f) => ({ ...f, price_short: e.target.value }))}
+                    />
+                  </label>
+                  <label>
+                    <div className="label">Price: Thumbnail</div>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={clientEditForm.price_thumbnail}
+                      onChange={(e) => setClientEditForm((f) => ({ ...f, price_thumbnail: e.target.value }))}
+                    />
+                  </label>
+                  <label>
+                    <div className="label">Price: Video</div>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={clientEditForm.price_video}
+                      onChange={(e) => setClientEditForm((f) => ({ ...f, price_video: e.target.value }))}
+                    />
+                  </label>
+                </div>
+                <div className="row">
+                  <button type="button" className="ghost" onClick={() => setEditingClientId(null)}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="primary">
+                    Save
+                  </button>
+                </div>
+              </form>
+            ) : null}
+
             <div className="tableWrap">
               <table className="table">
                 <thead>
@@ -383,6 +616,7 @@ function App() {
                     <th>Thumb</th>
                     <th>Video</th>
                     <th>Notes</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -401,11 +635,19 @@ function App() {
                         <td>${Number(c.price_thumbnail).toFixed(2)}</td>
                         <td>${Number(c.price_video).toFixed(2)}</td>
                         <td className="muted">{c.notes || ''}</td>
+                        <td>
+                          <button type="button" className="ghost smallBtn" onClick={() => openClientEdit(c)}>
+                            Edit
+                          </button>
+                          <button type="button" className="ghost smallBtn" onClick={() => archiveClient(c.id)}>
+                            Archive
+                          </button>
+                        </td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="6" className="muted">
+                      <td colSpan="7" className="muted">
                         No clients yet.
                       </td>
                     </tr>
@@ -413,6 +655,50 @@ function App() {
                 </tbody>
               </table>
             </div>
+
+            {archivedClients.length > 0 ? (
+              <>
+                <h3 className="subhead">Archived clients</h3>
+                <div className="tableWrap">
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Socials</th>
+                        <th>Short</th>
+                        <th>Thumb</th>
+                        <th>Video</th>
+                        <th>Notes</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {archivedClients.map((c) => (
+                        <tr key={c.id}>
+                          <td className="strong">{c.name}</td>
+                          <td className="muted socialsCell">
+                            {c.socials && typeof c.socials === 'object'
+                              ? [c.socials.twitch && 'Twitch', c.socials.youtube && 'YouTube', c.socials.discord && 'Discord']
+                                  .filter(Boolean)
+                                  .join(', ') || '—'
+                              : '—'}
+                          </td>
+                          <td>${Number(c.price_short).toFixed(2)}</td>
+                          <td>${Number(c.price_thumbnail).toFixed(2)}</td>
+                          <td>${Number(c.price_video).toFixed(2)}</td>
+                          <td className="muted">{c.notes || ''}</td>
+                          <td>
+                            <button type="button" className="ghost smallBtn" onClick={() => restoreClient(c.id)}>
+                              Restore
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            ) : null}
           </section>
         ) : null}
 
@@ -563,6 +849,100 @@ function App() {
               </div>
             </form>
 
+            {editingDeliverableId ? (
+              <form className="form editForm" onSubmit={onUpdateDeliverable}>
+                <h3 className="subhead">Edit deliverable</h3>
+                <div className="grid2">
+                  <label>
+                    <div className="label">Client</div>
+                    <select
+                      value={deliverableEditForm.client_id}
+                      onChange={(e) => setDeliverableEditForm((f) => ({ ...f, client_id: e.target.value }))}
+                      required
+                    >
+                      {[...clients, ...archivedClients].map((c) => (
+                        <option key={c.id} value={String(c.id)}>{c.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    <div className="label">Type</div>
+                    <select
+                      value={deliverableEditForm.type}
+                      onChange={(e) => setDeliverableEditForm((f) => ({ ...f, type: e.target.value }))}
+                    >
+                      <option value="short">Short</option>
+                      <option value="thumbnail">Thumbnail</option>
+                      <option value="video">Video</option>
+                    </select>
+                  </label>
+                  <label className="span2">
+                    <div className="label">Title</div>
+                    <input
+                      value={deliverableEditForm.title}
+                      onChange={(e) => setDeliverableEditForm((f) => ({ ...f, title: e.target.value }))}
+                      required
+                    />
+                  </label>
+                  <label className="span2">
+                    <div className="label">Description</div>
+                    <input
+                      value={deliverableEditForm.description}
+                      onChange={(e) => setDeliverableEditForm((f) => ({ ...f, description: e.target.value }))}
+                    />
+                  </label>
+                  <label className="span2">
+                    <div className="label">Source URL</div>
+                    <input
+                      type="url"
+                      value={deliverableEditForm.source_url}
+                      onChange={(e) => setDeliverableEditForm((f) => ({ ...f, source_url: e.target.value }))}
+                    />
+                  </label>
+                  <label>
+                    <div className="label">Status</div>
+                    <select
+                      value={deliverableEditForm.status}
+                      onChange={(e) => setDeliverableEditForm((f) => ({ ...f, status: e.target.value }))}
+                    >
+                      <option value="incomplete">Incomplete</option>
+                      <option value="complete">Complete</option>
+                    </select>
+                  </label>
+                  <label>
+                    <div className="label">Pricing</div>
+                    <select
+                      value={deliverableEditForm.price_mode}
+                      onChange={(e) => setDeliverableEditForm((f) => ({ ...f, price_mode: e.target.value }))}
+                    >
+                      <option value="auto">Auto (client rate)</option>
+                      <option value="override">Override (manual $)</option>
+                    </select>
+                  </label>
+                  {deliverableEditForm.price_mode === 'override' ? (
+                    <label>
+                      <div className="label">Manual price ($)</div>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={deliverableEditForm.price_value}
+                        onChange={(e) => setDeliverableEditForm((f) => ({ ...f, price_value: e.target.value }))}
+                      />
+                    </label>
+                  ) : null}
+                </div>
+                <div className="row">
+                  <button type="button" className="ghost" onClick={() => setEditingDeliverableId(null)}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="primary">
+                    Save
+                  </button>
+                </div>
+              </form>
+            ) : null}
+
             <div className="tableWrap">
               <table className="table">
                 <thead>
@@ -574,6 +954,7 @@ function App() {
                     <th>Price</th>
                     <th>Source URL</th>
                     <th>Created</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -603,12 +984,20 @@ function App() {
                           <td className="muted">
                             {d.created_at ? new Date(d.created_at).toLocaleString() : ''}
                           </td>
+                          <td>
+                            <button type="button" className="ghost smallBtn" onClick={() => openDeliverableEdit(d)}>
+                              Edit
+                            </button>
+                            <button type="button" className="ghost smallBtn" onClick={() => archiveDeliverable(d.id)}>
+                              Archive
+                            </button>
+                          </td>
                         </tr>
                       )
                     })
                   ) : (
                     <tr>
-                      <td colSpan="7" className="muted">
+                      <td colSpan="8" className="muted">
                         No deliverables yet.
                       </td>
                     </tr>
@@ -616,6 +1005,57 @@ function App() {
                 </tbody>
               </table>
             </div>
+
+            {archivedDeliverables.length > 0 ? (
+              <>
+                <h3 className="subhead">Archived deliverables</h3>
+                <div className="tableWrap">
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Title</th>
+                        <th>Client</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Price</th>
+                        <th>Source URL</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {archivedDeliverables.map((d) => {
+                        const c = clientById.get(String(d.client_id))
+                        return (
+                          <tr key={d.id}>
+                            <td className="strong">{d.title}</td>
+                            <td>{c ? c.name : `Client #${d.client_id}`}</td>
+                            <td className="pill">{d.type}</td>
+                            <td className={d.status === 'complete' ? 'ok' : 'muted'}>{d.status}</td>
+                            <td>
+                              {d.price_value != null ? `$${Number(d.price_value).toFixed(2)}` : ''}
+                            </td>
+                            <td className="muted sourceUrlCell">
+                              {d.source_url ? (
+                                <a href={d.source_url} target="_blank" rel="noopener noreferrer">Link</a>
+                              ) : '—'}
+                            </td>
+                            <td className="muted">
+                              {d.created_at ? new Date(d.created_at).toLocaleString() : ''}
+                            </td>
+                            <td>
+                              <button type="button" className="ghost smallBtn" onClick={() => restoreDeliverable(d.id)}>
+                                Restore
+                              </button>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            ) : null}
           </section>
         ) : null}
 

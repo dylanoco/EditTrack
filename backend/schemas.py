@@ -13,6 +13,7 @@ class ClientBase(BaseModel):
     price_thumbnail: float
     price_video: float
     notes: Optional[str] = None
+    archived: bool = False
 
 
 class ClientCreate(ClientBase):
@@ -24,6 +25,16 @@ class ClientRead(ClientBase):
 
     class Config:
         from_attributes = True
+
+
+class ClientUpdate(BaseModel):
+    name: Optional[str] = None
+    socials: Optional[Dict[str, Any]] = None
+    price_short: Optional[float] = None
+    price_thumbnail: Optional[float] = None
+    price_video: Optional[float] = None
+    notes: Optional[str] = None
+    archived: Optional[bool] = None
 
 
 class SourceBase(BaseModel):
@@ -62,6 +73,7 @@ class DeliverableBase(BaseModel):
     source_url: Optional[str] = None
     duration_sec: Optional[int] = None
     notes: Optional[str] = None
+    archived: bool = False
 
 
 class DeliverableCreate(DeliverableBase):
@@ -75,6 +87,24 @@ class DeliverableRead(DeliverableBase):
 
     class Config:
         from_attributes = True
+
+
+class DeliverableUpdate(BaseModel):
+    client_id: Optional[int] = None
+    source_id: Optional[int] = None
+    type: Optional[str] = None
+    title: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[str] = None
+    performance: Optional[Dict[str, Any]] = None
+    price_mode: Optional[str] = None
+    price_value: Optional[float] = None
+    payment_status: Optional[str] = None
+    source_title: Optional[str] = None
+    source_url: Optional[str] = None
+    duration_sec: Optional[int] = None
+    notes: Optional[str] = None
+    archived: Optional[bool] = None
 
 
 class InvoiceItemRead(BaseModel):
