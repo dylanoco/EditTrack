@@ -182,6 +182,12 @@ select {
   font-weight: 600;
 }
 
+.socialsCell,
+.sourceUrlCell {
+  white-space: normal;
+  max-width: 120px;
+}
+
 @media (max-width: 720px) {
   .grid2 {
     grid-template-columns: 1fr;

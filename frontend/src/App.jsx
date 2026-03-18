@@ -17,6 +17,9 @@ function App() {
 
   const [clientForm, setClientForm] = useState({
     name: '',
+    twitch: '',
+    youtube: '',
+    discord: '',
     price_short: 20,
     price_thumbnail: 10,
     price_video: 50,
@@ -28,8 +31,10 @@ function App() {
     type: 'short',
     title: '',
     description: '',
+    source_url: '',
     status: 'incomplete',
     price_mode: 'auto',
+    price_value: '',
   })
 
   const clientById = useMemo(() => {
@@ -64,20 +69,32 @@ function App() {
     e.preventDefault()
     setError(null)
     try {
+      const socials = {}
+      if (clientForm.twitch?.trim()) socials.twitch = clientForm.twitch.trim()
+      if (clientForm.youtube?.trim()) socials.youtube = clientForm.youtube.trim()
+      if (clientForm.discord?.trim()) socials.discord = clientForm.discord.trim()
+
       const payload = {
         name: clientForm.name.trim(),
         price_short: Number(clientForm.price_short),
         price_thumbnail: Number(clientForm.price_thumbnail),
         price_video: Number(clientForm.price_video),
         notes: clientForm.notes?.trim() || null,
-        socials: {},
+        socials: Object.keys(socials).length ? socials : null,
       }
       if (!payload.name) throw new Error('Client name is required')
 
       const created = await createClient(payload)
       await refreshAll()
       setActiveTab('clients')
-      setClientForm((f) => ({ ...f, name: '', notes: '' }))
+      setClientForm((f) => ({
+        ...f,
+        name: '',
+        twitch: '',
+        youtube: '',
+        discord: '',
+        notes: '',
+      }))
       setDeliverableForm((f) =>
         f.client_id ? f : { ...f, client_id: String(created.id) },
       )
@@ -95,16 +112,28 @@ function App() {
         type: deliverableForm.type,
         title: deliverableForm.title.trim(),
         description: deliverableForm.description?.trim() || null,
+        source_url: deliverableForm.source_url?.trim() || null,
         status: deliverableForm.status,
         price_mode: deliverableForm.price_mode,
       }
       if (!payload.client_id) throw new Error('Client is required')
       if (!payload.title) throw new Error('Deliverable title is required')
+      if (payload.price_mode === 'override') {
+        const val = deliverableForm.price_value
+        if (val === '' || val == null) throw new Error('Manual price is required when using override pricing')
+        payload.price_value = Number(val)
+      }
 
       await createDeliverable(payload)
       await refreshAll()
       setActiveTab('deliverables')
-      setDeliverableForm((f) => ({ ...f, title: '', description: '' }))
+      setDeliverableForm((f) => ({
+        ...f,
+        title: '',
+        description: '',
+        source_url: '',
+        price_value: '',
+      }))
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     }
@@ -175,6 +204,39 @@ function App() {
                 </label>
 
                 <label>
+                  <div className="label">Twitch</div>
+                  <input
+                    value={clientForm.twitch}
+                    onChange={(e) =>
+                      setClientForm((f) => ({ ...f, twitch: e.target.value }))
+                    }
+                    placeholder="optional"
+                  />
+                </label>
+
+                <label>
+                  <div className="label">YouTube</div>
+                  <input
+                    value={clientForm.youtube}
+                    onChange={(e) =>
+                      setClientForm((f) => ({ ...f, youtube: e.target.value }))
+                    }
+                    placeholder="optional"
+                  />
+                </label>
+
+                <label>
+                  <div className="label">Discord</div>
+                  <input
+                    value={clientForm.discord}
+                    onChange={(e) =>
+                      setClientForm((f) => ({ ...f, discord: e.target.value }))
+                    }
+                    placeholder="optional"
+                  />
+                </label>
+
+                <label>
                   <div className="label">Price: Short</div>
                   <input
                     type="number"
@@ -232,6 +294,7 @@ function App() {
                 <thead>
                   <tr>
                     <th>Name</th>
+                    <th>Socials</th>
                     <th>Short</th>
                     <th>Thumb</th>
                     <th>Video</th>
@@ -243,6 +306,13 @@ function App() {
                     clients.map((c) => (
                       <tr key={c.id}>
                         <td className="strong">{c.name}</td>
+                        <td className="muted socialsCell">
+                          {c.socials && typeof c.socials === 'object'
+                            ? [c.socials.twitch && 'Twitch', c.socials.youtube && 'YouTube', c.socials.discord && 'Discord']
+                                .filter(Boolean)
+                                .join(', ') || '—'
+                            : '—'}
+                        </td>
                         <td>${Number(c.price_short).toFixed(2)}</td>
                         <td>${Number(c.price_thumbnail).toFixed(2)}</td>
                         <td>${Number(c.price_video).toFixed(2)}</td>
@@ -251,7 +321,7 @@ function App() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="5" className="muted">
+                      <td colSpan="6" className="muted">
                         No clients yet.
                       </td>
                     </tr>
@@ -334,6 +404,21 @@ function App() {
                   />
                 </label>
 
+                <label className="span2">
+                  <div className="label">Source URL</div>
+                  <input
+                    type="url"
+                    value={deliverableForm.source_url}
+                    onChange={(e) =>
+                      setDeliverableForm((f) => ({
+                        ...f,
+                        source_url: e.target.value,
+                      }))
+                    }
+                    placeholder="VoD or clip URL (optional)"
+                  />
+                </label>
+
                 <label>
                   <div className="label">Status</div>
                   <select
@@ -362,9 +447,29 @@ function App() {
                     }
                   >
                     <option value="auto">Auto (client rate)</option>
-                    <option value="override">Override (not in UI yet)</option>
+                    <option value="override">Override (manual $)</option>
                   </select>
                 </label>
+
+                {deliverableForm.price_mode === 'override' ? (
+                  <label>
+                    <div className="label">Manual price ($)</div>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={deliverableForm.price_value}
+                      onChange={(e) =>
+                        setDeliverableForm((f) => ({
+                          ...f,
+                          price_value: e.target.value,
+                        }))
+                      }
+                      placeholder="e.g. 25"
+                      required={deliverableForm.price_mode === 'override'}
+                    />
+                  </label>
+                ) : null}
               </div>
 
               <div className="row">
@@ -383,6 +488,7 @@ function App() {
                     <th>Type</th>
                     <th>Status</th>
                     <th>Price</th>
+                    <th>Source URL</th>
                     <th>Created</th>
                   </tr>
                 </thead>
@@ -403,6 +509,13 @@ function App() {
                               ? `$${Number(d.price_value).toFixed(2)}`
                               : ''}
                           </td>
+                          <td className="muted sourceUrlCell">
+                            {d.source_url ? (
+                              <a href={d.source_url} target="_blank" rel="noopener noreferrer">
+                                Link
+                              </a>
+                            ) : '—'}
+                          </td>
                           <td className="muted">
                             {d.created_at ? new Date(d.created_at).toLocaleString() : ''}
                           </td>
@@ -411,7 +524,7 @@ function App() {
                     })
                   ) : (
                     <tr>
-                      <td colSpan="6" className="muted">
+                      <td colSpan="7" className="muted">
                         No deliverables yet.
                       </td>
                     </tr>

@@ -59,6 +59,7 @@ class DeliverableBase(BaseModel):
     price_value: Optional[float] = None
     payment_status: str = "unpaid"
     source_title: Optional[str] = None
+    source_url: Optional[str] = None
     duration_sec: Optional[int] = None
     notes: Optional[str] = None
 

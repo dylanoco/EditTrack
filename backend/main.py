@@ -126,6 +126,13 @@ def create_deliverable(
 
     if payload.price_mode == "auto":
         data["price_value"] = _auto_price_for_deliverable(payload, client)
+    else:
+        if payload.price_value is None:
+            raise HTTPException(
+                status_code=400,
+                detail="price_value is required when price_mode is override",
+            )
+        data["price_value"] = float(payload.price_value)
 
     deliverable = Deliverable(**data)
     db.add(deliverable)
