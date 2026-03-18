@@ -8,6 +8,7 @@ import {
   fetchClients,
   fetchDeliverables,
   fetchInvoices,
+  syncClientSources,
   updateClient,
   updateDeliverable,
 } from './api.js'
@@ -87,6 +88,9 @@ function App() {
     period_end: today,
     label: '',
   })
+
+  const [clientSources, setClientSources] = useState([])
+  const [clientSourcesLoading, setClientSourcesLoading] = useState(false)
 
   const clientById = useMemo(() => {
     const m = new Map()
@@ -346,6 +350,33 @@ function App() {
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     }
+  }
+
+  async function onFetchTwitchSources(force = false) {
+    const clientId = deliverableForm.client_id
+    if (!clientId) {
+      setError('Select a client first')
+      return
+    }
+    setError(null)
+    setClientSourcesLoading(true)
+    try {
+      const list = await syncClientSources(Number(clientId), 'twitch', force)
+      setClientSources(list)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+      setClientSources([])
+    } finally {
+      setClientSourcesLoading(false)
+    }
+  }
+
+  function useSourceForDeliverable(source) {
+    setDeliverableForm((f) => ({
+      ...f,
+      source_url: source.url || f.source_url,
+      title: source.title?.trim() || f.title,
+    }))
   }
 
   async function onCreateInvoice(e) {
@@ -712,12 +743,11 @@ function App() {
                   <div className="label">Client</div>
                   <select
                     value={deliverableForm.client_id}
-                    onChange={(e) =>
-                      setDeliverableForm((f) => ({
-                        ...f,
-                        client_id: e.target.value,
-                      }))
-                    }
+                    onChange={(e) => {
+                      const v = e.target.value
+                      setDeliverableForm((f) => ({ ...f, client_id: v }))
+                      if (!v) setClientSources([])
+                    }}
                     required
                   >
                     <option value="" disabled>
@@ -848,6 +878,69 @@ function App() {
                 </button>
               </div>
             </form>
+
+            {deliverableForm.client_id ? (
+              <div className="form">
+                <h3 className="subhead">Twitch sources</h3>
+                <p className="muted" style={{ marginBottom: '0.5rem' }}>
+                  Fetch clips for this client (uses Twitch channel name from client socials). Results are cached for 10 minutes.
+                </p>
+                <div className="row" style={{ gap: '0.5rem', marginBottom: '0.75rem' }}>
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={() => onFetchTwitchSources(false)}
+                    disabled={clientSourcesLoading}
+                  >
+                    {clientSourcesLoading ? 'Fetching…' : 'Fetch Twitch sources'}
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost"
+                    onClick={() => onFetchTwitchSources(true)}
+                    disabled={clientSourcesLoading}
+                  >
+                    Force refresh
+                  </button>
+                </div>
+                {clientSources.length > 0 ? (
+                  <div className="tableWrap">
+                    <table className="table">
+                      <thead>
+                        <tr>
+                          <th>Title</th>
+                          <th>Duration</th>
+                          <th>Link</th>
+                          <th>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {clientSources.map((s) => (
+                          <tr key={s.id}>
+                            <td className="strong">{s.title || '—'}</td>
+                            <td className="muted">{s.duration_sec != null ? `${s.duration_sec}s` : '—'}</td>
+                            <td className="sourceUrlCell">
+                              {s.url ? (
+                                <a href={s.url} target="_blank" rel="noopener noreferrer">Clip</a>
+                              ) : '—'}
+                            </td>
+                            <td>
+                              <button
+                                type="button"
+                                className="ghost smallBtn"
+                                onClick={() => useSourceForDeliverable(s)}
+                              >
+                                Use for deliverable
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
 
             {editingDeliverableId ? (
               <form className="form editForm" onSubmit={onUpdateDeliverable}>

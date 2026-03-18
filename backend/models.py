@@ -72,6 +72,11 @@ class Source(Base):
         default=datetime.utcnow,
         nullable=False,
     )
+    fetched_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        doc="When this source was last updated from an external fetch (e.g. Twitch).",
+    )
 
     client: Mapped["Client"] = relationship(back_populates="sources")
     deliverables: Mapped[List["Deliverable"]] = relationship(back_populates="source")

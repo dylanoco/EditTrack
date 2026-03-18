@@ -75,3 +75,12 @@ export async function createInvoice(payload) {
   return request('/invoices', { method: 'POST', body: payload })
 }
 
+export async function fetchClientSources(clientId) {
+  return request(`/clients/${clientId}/sources`)
+}
+
+export async function syncClientSources(clientId, platform = 'twitch', force = false) {
+  const qs = new URLSearchParams({ platform, force: String(force) })
+  return request(`/clients/${clientId}/sources/sync?${qs}`, { method: 'POST' })
+}
+

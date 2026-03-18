@@ -53,6 +53,7 @@ class SourceCreate(SourceBase):
 class SourceRead(SourceBase):
     id: int
     created_at: datetime
+    fetched_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

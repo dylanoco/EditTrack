@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta, timezone
 from typing import List, Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Query
@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from database import engine, get_db
 from models import Base, Client, Deliverable, Invoice, InvoiceItem, Source
+from twitch import fetch_clips, resolve_broadcaster_id
 from schemas import (
     ClientCreate,
     ClientRead,
@@ -117,6 +118,114 @@ def list_sources_for_client(client_id: int, db: Session = Depends(get_db)) -> Li
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
     stmt = select(Source).where(Source.client_id == client_id).order_by(Source.created_at.desc())
+    return db.scalars(stmt).all()
+
+
+# Cache TTL for sources: return from DB if last fetch was within this many minutes
+SOURCES_CACHE_MINUTES = 10
+
+
+@app.post("/clients/{client_id}/sources/sync", response_model=List[SourceRead])
+def sync_client_sources(
+    client_id: int,
+    platform: str = Query("twitch", description="Platform to sync (twitch only for now)"),
+    force: bool = Query(False, description="If True, always refetch from Twitch"),
+    db: Session = Depends(get_db),
+) -> List[Source]:
+    client = db.get(Client, client_id)
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+    if client.archived:
+        raise HTTPException(status_code=400, detail="Client is archived")
+
+    if platform != "twitch":
+        raise HTTPException(status_code=400, detail="Only platform=twitch is supported")
+
+    now = datetime.now(timezone.utc)
+    cache_cutoff = now - timedelta(minutes=SOURCES_CACHE_MINUTES)
+
+    if not force:
+        stmt = (
+            select(Source)
+            .where(Source.client_id == client_id, Source.platform == "twitch")
+            .order_by(Source.fetched_at.desc().nullslast(), Source.created_at.desc())
+        )
+        existing = db.scalars(stmt).all()
+        if existing and existing[0].fetched_at and existing[0].fetched_at >= cache_cutoff:
+            return existing
+
+    # Resolve broadcaster_id: use cached from socials or call Twitch
+    socials = client.socials or {}
+    broadcaster_id = socials.get("twitch_broadcaster_id")
+    if not broadcaster_id:
+        channel = socials.get("twitch")
+        if not channel or not str(channel).strip():
+            raise HTTPException(
+                status_code=400,
+                detail="Add Twitch channel name for this client in socials (e.g. twitch: streamer name)",
+            )
+        broadcaster_id = resolve_broadcaster_id(str(channel))
+        if not broadcaster_id:
+            raise HTTPException(
+                status_code=400,
+                detail="Could not find Twitch channel with that name",
+            )
+        socials = dict(socials)
+        socials["twitch_broadcaster_id"] = broadcaster_id
+        client.socials = socials
+        db.add(client)
+        db.flush()
+
+    try:
+        clips = fetch_clips(broadcaster_id, first=100)
+    except Exception as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Twitch API error: {getattr(e, 'message', str(e))}",
+        )
+
+    # Upsert sources by (client_id, platform, external_id)
+    existing_by_ext = {
+        s.external_id: s
+        for s in db.scalars(select(Source).where(Source.client_id == client_id, Source.platform == "twitch")).all()
+        if s.external_id
+    }
+
+    for clip in clips:
+        ext_id = clip.get("id")
+        if not ext_id:
+            continue
+        title = clip.get("title") or "Untitled clip"
+        url = clip.get("url")
+        duration = clip.get("duration")
+        duration_sec = int(duration) if duration is not None else None
+
+        if ext_id in existing_by_ext:
+            src = existing_by_ext[ext_id]
+            src.title = title
+            src.url = url
+            src.duration_sec = duration_sec
+            src.fetched_at = now
+        else:
+            src = Source(
+                client_id=client_id,
+                platform="twitch",
+                external_id=ext_id,
+                title=title,
+                url=url,
+                duration_sec=duration_sec,
+                fetched_at=now,
+            )
+            db.add(src)
+            existing_by_ext[ext_id] = src
+
+    db.commit()
+
+    stmt = (
+        select(Source)
+        .where(Source.client_id == client_id, Source.platform == "twitch")
+        .order_by(Source.fetched_at.desc().nullslast(), Source.created_at.desc())
+    )
     return db.scalars(stmt).all()
 
 
