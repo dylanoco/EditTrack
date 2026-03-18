@@ -1,119 +1,427 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
 import './App.css'
+import { useEffect, useMemo, useState } from 'react'
+import {
+  createClient,
+  createDeliverable,
+  fetchClients,
+  fetchDeliverables,
+} from './api.js'
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [activeTab, setActiveTab] = useState('clients')
+  const [error, setError] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  const [clients, setClients] = useState([])
+  const [deliverables, setDeliverables] = useState([])
+
+  const [clientForm, setClientForm] = useState({
+    name: '',
+    price_short: 20,
+    price_thumbnail: 10,
+    price_video: 50,
+    notes: '',
+  })
+
+  const [deliverableForm, setDeliverableForm] = useState({
+    client_id: '',
+    type: 'short',
+    title: '',
+    description: '',
+    status: 'incomplete',
+    price_mode: 'auto',
+  })
+
+  const clientById = useMemo(() => {
+    const m = new Map()
+    for (const c of clients) m.set(String(c.id), c)
+    return m
+  }, [clients])
+
+  async function refreshAll() {
+    setError(null)
+    setLoading(true)
+    try {
+      const [c, d] = await Promise.all([fetchClients(), fetchDeliverables()])
+      setClients(c)
+      setDeliverables(d)
+      if (c.length && !deliverableForm.client_id) {
+        setDeliverableForm((f) => ({ ...f, client_id: String(c[0].id) }))
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    refreshAll()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  async function onCreateClient(e) {
+    e.preventDefault()
+    setError(null)
+    try {
+      const payload = {
+        name: clientForm.name.trim(),
+        price_short: Number(clientForm.price_short),
+        price_thumbnail: Number(clientForm.price_thumbnail),
+        price_video: Number(clientForm.price_video),
+        notes: clientForm.notes?.trim() || null,
+        socials: {},
+      }
+      if (!payload.name) throw new Error('Client name is required')
+
+      const created = await createClient(payload)
+      await refreshAll()
+      setActiveTab('clients')
+      setClientForm((f) => ({ ...f, name: '', notes: '' }))
+      setDeliverableForm((f) =>
+        f.client_id ? f : { ...f, client_id: String(created.id) },
+      )
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }
+
+  async function onCreateDeliverable(e) {
+    e.preventDefault()
+    setError(null)
+    try {
+      const payload = {
+        client_id: Number(deliverableForm.client_id),
+        type: deliverableForm.type,
+        title: deliverableForm.title.trim(),
+        description: deliverableForm.description?.trim() || null,
+        status: deliverableForm.status,
+        price_mode: deliverableForm.price_mode,
+      }
+      if (!payload.client_id) throw new Error('Client is required')
+      if (!payload.title) throw new Error('Deliverable title is required')
+
+      await createDeliverable(payload)
+      await refreshAll()
+      setActiveTab('deliverables')
+      setDeliverableForm((f) => ({ ...f, title: '', description: '' }))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }
 
   return (
     <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+      <header className="topbar">
+        <div className="brand">
+          <div className="brandMark" aria-hidden="true" />
+          <div>
+            <div className="brandName">Editor Tracker</div>
+            <div className="brandSub">MVP CRUD dashboard</div>
+          </div>
         </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
+        <nav className="tabs" aria-label="Sections">
+          <button
+            type="button"
+            className={activeTab === 'clients' ? 'tab active' : 'tab'}
+            onClick={() => setActiveTab('clients')}
+          >
+            Clients
+          </button>
+          <button
+            type="button"
+            className={activeTab === 'deliverables' ? 'tab active' : 'tab'}
+            onClick={() => setActiveTab('deliverables')}
+          >
+            Deliverables
+          </button>
+        </nav>
+        <button type="button" className="ghost" onClick={refreshAll}>
+          Refresh
         </button>
-      </section>
+      </header>
 
-      <div className="ticks"></div>
+      <main className="container">
+        {error ? <div className="alert">{error}</div> : null}
+        {loading ? <div className="muted">Loading…</div> : null}
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+        {activeTab === 'clients' ? (
+          <section className="card">
+            <h2>Clients</h2>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
+            <form className="form" onSubmit={onCreateClient}>
+              <div className="grid2">
+                <label>
+                  <div className="label">Name</div>
+                  <input
+                    value={clientForm.name}
+                    onChange={(e) =>
+                      setClientForm((f) => ({ ...f, name: e.target.value }))
+                    }
+                    placeholder="e.g. Streamer A"
+                    required
+                  />
+                </label>
+
+                <label>
+                  <div className="label">Notes</div>
+                  <input
+                    value={clientForm.notes}
+                    onChange={(e) =>
+                      setClientForm((f) => ({ ...f, notes: e.target.value }))
+                    }
+                    placeholder="optional"
+                  />
+                </label>
+
+                <label>
+                  <div className="label">Price: Short</div>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={clientForm.price_short}
+                    onChange={(e) =>
+                      setClientForm((f) => ({
+                        ...f,
+                        price_short: e.target.value,
+                      }))
+                    }
+                  />
+                </label>
+
+                <label>
+                  <div className="label">Price: Thumbnail</div>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={clientForm.price_thumbnail}
+                    onChange={(e) =>
+                      setClientForm((f) => ({
+                        ...f,
+                        price_thumbnail: e.target.value,
+                      }))
+                    }
+                  />
+                </label>
+
+                <label>
+                  <div className="label">Price: Video</div>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={clientForm.price_video}
+                    onChange={(e) =>
+                      setClientForm((f) => ({
+                        ...f,
+                        price_video: e.target.value,
+                      }))
+                    }
+                  />
+                </label>
+              </div>
+
+              <div className="row">
+                <button type="submit" className="primary">
+                  Create client
+                </button>
+              </div>
+            </form>
+
+            <div className="tableWrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Short</th>
+                    <th>Thumb</th>
+                    <th>Video</th>
+                    <th>Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {clients.length ? (
+                    clients.map((c) => (
+                      <tr key={c.id}>
+                        <td className="strong">{c.name}</td>
+                        <td>${Number(c.price_short).toFixed(2)}</td>
+                        <td>${Number(c.price_thumbnail).toFixed(2)}</td>
+                        <td>${Number(c.price_video).toFixed(2)}</td>
+                        <td className="muted">{c.notes || ''}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="5" className="muted">
+                        No clients yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        ) : null}
+
+        {activeTab === 'deliverables' ? (
+          <section className="card">
+            <h2>Deliverables</h2>
+
+            <form className="form" onSubmit={onCreateDeliverable}>
+              <div className="grid2">
+                <label>
+                  <div className="label">Client</div>
+                  <select
+                    value={deliverableForm.client_id}
+                    onChange={(e) =>
+                      setDeliverableForm((f) => ({
+                        ...f,
+                        client_id: e.target.value,
+                      }))
+                    }
+                    required
+                  >
+                    <option value="" disabled>
+                      Select client…
+                    </option>
+                    {clients.map((c) => (
+                      <option key={c.id} value={String(c.id)}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label>
+                  <div className="label">Type</div>
+                  <select
+                    value={deliverableForm.type}
+                    onChange={(e) =>
+                      setDeliverableForm((f) => ({
+                        ...f,
+                        type: e.target.value,
+                      }))
+                    }
+                  >
+                    <option value="short">Short</option>
+                    <option value="thumbnail">Thumbnail</option>
+                    <option value="video">Video</option>
+                  </select>
+                </label>
+
+                <label className="span2">
+                  <div className="label">Title</div>
+                  <input
+                    value={deliverableForm.title}
+                    onChange={(e) =>
+                      setDeliverableForm((f) => ({ ...f, title: e.target.value }))
+                    }
+                    placeholder="e.g. Clip highlights #12"
+                    required
+                  />
+                </label>
+
+                <label className="span2">
+                  <div className="label">Description</div>
+                  <input
+                    value={deliverableForm.description}
+                    onChange={(e) =>
+                      setDeliverableForm((f) => ({
+                        ...f,
+                        description: e.target.value,
+                      }))
+                    }
+                    placeholder="optional"
+                  />
+                </label>
+
+                <label>
+                  <div className="label">Status</div>
+                  <select
+                    value={deliverableForm.status}
+                    onChange={(e) =>
+                      setDeliverableForm((f) => ({
+                        ...f,
+                        status: e.target.value,
+                      }))
+                    }
+                  >
+                    <option value="incomplete">Incomplete</option>
+                    <option value="complete">Complete</option>
+                  </select>
+                </label>
+
+                <label>
+                  <div className="label">Pricing</div>
+                  <select
+                    value={deliverableForm.price_mode}
+                    onChange={(e) =>
+                      setDeliverableForm((f) => ({
+                        ...f,
+                        price_mode: e.target.value,
+                      }))
+                    }
+                  >
+                    <option value="auto">Auto (client rate)</option>
+                    <option value="override">Override (not in UI yet)</option>
+                  </select>
+                </label>
+              </div>
+
+              <div className="row">
+                <button type="submit" className="primary">
+                  Create deliverable
+                </button>
+              </div>
+            </form>
+
+            <div className="tableWrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Title</th>
+                    <th>Client</th>
+                    <th>Type</th>
+                    <th>Status</th>
+                    <th>Price</th>
+                    <th>Created</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {deliverables.length ? (
+                    deliverables.map((d) => {
+                      const c = clientById.get(String(d.client_id))
+                      return (
+                        <tr key={d.id}>
+                          <td className="strong">{d.title}</td>
+                          <td>{c ? c.name : `Client #${d.client_id}`}</td>
+                          <td className="pill">{d.type}</td>
+                          <td className={d.status === 'complete' ? 'ok' : 'muted'}>
+                            {d.status}
+                          </td>
+                          <td>
+                            {d.price_value != null
+                              ? `$${Number(d.price_value).toFixed(2)}`
+                              : ''}
+                          </td>
+                          <td className="muted">
+                            {d.created_at ? new Date(d.created_at).toLocaleString() : ''}
+                          </td>
+                        </tr>
+                      )
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan="6" className="muted">
+                        No deliverables yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        ) : null}
+      </main>
     </>
   )
 }

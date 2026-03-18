@@ -1,6 +1,4 @@
 
-## .gitignore (monorepo)
-```gitignore
 # Dependencies
 **/node_modules/
 **/dist/
