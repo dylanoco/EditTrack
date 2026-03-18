@@ -6,7 +6,7 @@
 **/dist/
 **/build/
 venv/
-
+**/__pycache__/
 # Env
 .env
 .env.local

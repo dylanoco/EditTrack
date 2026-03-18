@@ -137,6 +137,7 @@ class Deliverable(Base):
     invoice_items: Mapped[List["InvoiceItem"]] = relationship(
         back_populates="deliverable",
     )
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 
     __table_args__ = (
         CheckConstraint("status IN ('complete','incomplete')", name="chk_deliv_status"),
@@ -165,11 +166,6 @@ class Invoice(Base):
         ForeignKey("clients.id", ondelete="CASCADE"),
         nullable=False,
     )
-    month: Mapped[date] = mapped_column(
-        Date,
-        nullable=False,
-        doc="First day of month, e.g. 2026-03-01",
-    )
     total_amount: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
     status: Mapped[str] = mapped_column(
         String,
@@ -184,10 +180,9 @@ class Invoice(Base):
 
     client: Mapped["Client"] = relationship(back_populates="invoices")
     items: Mapped[List["InvoiceItem"]] = relationship(back_populates="invoice")
-
-    __table_args__ = (
-        Index("idx_invoice_month_client", "client_id", "month"),
-    )
+    period_start: Mapped[date] = mapped_column(Date, nullable=False)
+    period_end: Mapped[date] = mapped_column(Date, nullable=False)
+    label: Mapped[str] = mapped_column(Text, nullable=False)
 
 
 class InvoiceItem(Base):

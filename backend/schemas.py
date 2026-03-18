@@ -88,7 +88,9 @@ class InvoiceItemRead(BaseModel):
 class InvoiceRead(BaseModel):
     id: int
     client_id: int
-    month: date
+    period_start: date
+    period_end: date
+    label: str
     total_amount: float
     status: str
     created_at: datetime
