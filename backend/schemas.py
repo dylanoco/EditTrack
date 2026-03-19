@@ -6,6 +6,39 @@ from typing import Optional, Dict, Any, List
 from pydantic import BaseModel, Field
 
 
+class UserRead(BaseModel):
+    id: int
+    email: str
+    display_name: Optional[str] = None
+    avatar_url: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class RegisterRequest(BaseModel):
+    email: str
+    password: str
+    display_name: Optional[str] = None
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class AuthTokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserRead
+
+
+class ProfileUpdateRequest(BaseModel):
+    display_name: Optional[str] = None
+    avatar_url: Optional[str] = None
+
+
 class ClientBase(BaseModel):
     name: str
     socials: Optional[Dict[str, Any]] = None

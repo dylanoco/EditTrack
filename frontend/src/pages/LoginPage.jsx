@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { login as loginApi } from '../api'
 
 export function LoginPage() {
+  const apiBase = import.meta.env.VITE_API_URL?.replace(/\/+$/, '') || 'http://localhost:8000'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState(null)
@@ -19,8 +21,8 @@ export function LoginPage() {
       return
     }
     try {
-      // Stub: accept any email/password and store a fake token until backend auth exists
-      login('stub-token', { email: email.trim(), display_name: email.trim().split('@')[0] })
+      const result = await loginApi({ email: email.trim(), password })
+      login(result.access_token, result.user)
       navigate(from, { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed.')
@@ -31,7 +33,7 @@ export function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-gray-100 dark:bg-gray-900 px-4">
       <div className="w-full max-w-sm rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
         <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Sign in</h1>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Use any email/password for now (stub auth).</p>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Sign in to your editor account.</p>
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           {error && (
             <p className="text-sm text-red-600 dark:text-red-400" role="alert">{error}</p>
@@ -66,6 +68,12 @@ export function LoginPage() {
             Sign in
           </button>
         </form>
+        <a
+          href={`${apiBase}/auth/google/start`}
+          className="mt-3 block w-full rounded-lg border border-gray-300 px-4 py-2 text-center text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+        >
+          Continue with Google
+        </a>
         <p className="mt-4 text-center text-sm text-gray-500 dark:text-gray-400">
           No account? <Link to="/register" className="font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400">Register</Link>
         </p>

@@ -3,6 +3,7 @@ import { Layout } from './components/layout/Layout'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { LegacyContent } from './LegacyContent'
 import { ClientPage } from './pages/ClientPage'
+import { ClientsPage } from './pages/ClientsPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { LoginPage } from './pages/LoginPage'
 import { OAuthCallbackPage } from './pages/OAuthCallbackPage'
@@ -25,7 +26,7 @@ function App() {
       >
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
-        <Route path="clients" element={<LegacyContent activeTab="clients" />} />
+        <Route path="clients" element={<ClientsPage />} />
         <Route path="clients/:id" element={<ClientPage />} />
         <Route path="deliverables" element={<LegacyContent activeTab="deliverables" />} />
         <Route path="sources" element={<LegacyContent activeTab="sources" />} />

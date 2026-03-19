@@ -1,21 +1,33 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { fetchMe } from '../api'
 
 export function OAuthCallbackPage() {
   const { login } = useAuth()
   const navigate = useNavigate()
 
   useEffect(() => {
-    // Stub: no real OAuth yet; redirect to dashboard and set stub user
+    // Complete OAuth login by reading token from callback query
     const params = new URLSearchParams(window.location.search)
     const token = params.get('token')
-    if (token) {
-      login(token, { email: 'oauth@example.com', display_name: 'User' })
-    } else {
-      login('stub-token', { email: 'oauth@example.com', display_name: 'User' })
+    if (!token) {
+      navigate('/login', { replace: true })
+      return
     }
-    navigate('/dashboard', { replace: true })
+
+    async function finishOAuth() {
+      localStorage.setItem('edittrack_token', token)
+      try {
+        const me = await fetchMe()
+        login(token, me)
+      } catch {
+        login(token, null)
+      }
+      navigate('/dashboard', { replace: true })
+    }
+
+    finishOAuth()
   }, [login, navigate])
 
   return (

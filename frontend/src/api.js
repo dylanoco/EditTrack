@@ -1,10 +1,20 @@
 const API_BASE =
   import.meta.env.VITE_API_URL?.replace(/\/+$/, '') || 'http://localhost:8000'
 
+function getAccessToken() {
+  if (typeof window === 'undefined') return null
+  return localStorage.getItem('edittrack_token')
+}
+
 async function request(path, { method = 'GET', body } = {}) {
+  const token = getAccessToken()
+  const headers = {}
+  if (body) headers['Content-Type'] = 'application/json'
+  if (token) headers.Authorization = `Bearer ${token}`
+
   const res = await fetch(`${API_BASE}${path}`, {
     method,
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    headers: Object.keys(headers).length ? headers : undefined,
     body: body ? JSON.stringify(body) : undefined,
   })
 
@@ -21,11 +31,36 @@ async function request(path, { method = 'GET', body } = {}) {
   return data
 }
 
+export async function register(payload) {
+  return request('/auth/register', { method: 'POST', body: payload })
+}
+
+export async function login(payload) {
+  return request('/auth/login', { method: 'POST', body: payload })
+}
+
+export async function fetchMe() {
+  return request('/auth/me')
+}
+
+export async function fetchDashboardOverview(params = {}) {
+  const qs = new URLSearchParams()
+  if (params.client_id) qs.set('client_id', String(params.client_id))
+  if (params.period_start) qs.set('period_start', params.period_start)
+  if (params.period_end) qs.set('period_end', params.period_end)
+  const suffix = qs.toString() ? `?${qs.toString()}` : ''
+  return request(`/dashboard/overview${suffix}`)
+}
+
 export async function fetchClients(params = {}) {
   const qs = new URLSearchParams()
   if (params.archived !== undefined) qs.set('archived', String(params.archived))
   const suffix = qs.toString() ? `?${qs.toString()}` : ''
   return request(`/clients${suffix}`)
+}
+
+export async function fetchClient(id) {
+  return request(`/clients/${id}`)
 }
 
 export async function createClient(payload) {

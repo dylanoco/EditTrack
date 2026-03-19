@@ -23,10 +23,60 @@ class Base(DeclarativeBase):
     pass
 
 
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    password_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    display_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    avatar_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=datetime.utcnow,
+        nullable=False,
+    )
+
+    clients: Mapped[List["Client"]] = relationship(back_populates="owner_user")
+    deliverables: Mapped[List["Deliverable"]] = relationship(back_populates="owner_user")
+    sources: Mapped[List["Source"]] = relationship(back_populates="owner_user")
+    invoices: Mapped[List["Invoice"]] = relationship(back_populates="owner_user")
+    oauth_accounts: Mapped[List["OAuthAccount"]] = relationship(back_populates="user")
+
+
+class OAuthAccount(Base):
+    __tablename__ = "oauth_accounts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    provider: Mapped[str] = mapped_column(String(32), nullable=False)
+    provider_user_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=datetime.utcnow,
+        nullable=False,
+    )
+
+    user: Mapped["User"] = relationship(back_populates="oauth_accounts")
+
+    __table_args__ = (
+        Index("idx_oauth_provider_user_id", "provider", "provider_user_id", unique=True),
+    )
+
+
 class Client(Base):
     __tablename__ = "clients"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    owner_user_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
     name: Mapped[str] = mapped_column(Text, nullable=False)
     socials: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON)
     price_short: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
@@ -38,12 +88,18 @@ class Client(Base):
     deliverables: Mapped[List["Deliverable"]] = relationship(back_populates="client")
     sources: Mapped[List["Source"]] = relationship(back_populates="client")
     invoices: Mapped[List["Invoice"]] = relationship(back_populates="client")
+    owner_user: Mapped[Optional["User"]] = relationship(back_populates="clients")
 
 
 class Source(Base):
     __tablename__ = "sources"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    owner_user_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
     client_id: Mapped[int] = mapped_column(
         ForeignKey("clients.id", ondelete="CASCADE"),
         nullable=False,
@@ -80,12 +136,18 @@ class Source(Base):
 
     client: Mapped["Client"] = relationship(back_populates="sources")
     deliverables: Mapped[List["Deliverable"]] = relationship(back_populates="source")
+    owner_user: Mapped[Optional["User"]] = relationship(back_populates="sources")
 
 
 class Deliverable(Base):
     __tablename__ = "deliverables"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    owner_user_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
     client_id: Mapped[int] = mapped_column(
         ForeignKey("clients.id", ondelete="CASCADE"),
         nullable=False,
@@ -142,6 +204,7 @@ class Deliverable(Base):
 
     client: Mapped["Client"] = relationship(back_populates="deliverables")
     source: Mapped[Optional["Source"]] = relationship(back_populates="deliverables")
+    owner_user: Mapped[Optional["User"]] = relationship(back_populates="deliverables")
     invoice_items: Mapped[List["InvoiceItem"]] = relationship(
         back_populates="deliverable",
     )
@@ -171,6 +234,11 @@ class Invoice(Base):
     __tablename__ = "invoices"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    owner_user_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
     client_id: Mapped[int] = mapped_column(
         ForeignKey("clients.id", ondelete="CASCADE"),
         nullable=False,
@@ -189,6 +257,7 @@ class Invoice(Base):
 
     client: Mapped["Client"] = relationship(back_populates="invoices")
     items: Mapped[List["InvoiceItem"]] = relationship(back_populates="invoice")
+    owner_user: Mapped[Optional["User"]] = relationship(back_populates="invoices")
     period_start: Mapped[date] = mapped_column(Date, nullable=False)
     period_end: Mapped[date] = mapped_column(Date, nullable=False)
     label: Mapped[str] = mapped_column(Text, nullable=False)
