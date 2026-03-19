@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 from datetime import date, datetime, timedelta, timezone
 from urllib.parse import urlencode
 from typing import List, Optional
@@ -8,6 +9,9 @@ from typing import List, Optional
 from fastapi import Depends, FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 import httpx
 from jose import JWTError, jwt
@@ -58,11 +62,41 @@ def _cors_allow_origins() -> List[str]:
     ]
 
 
+_CORS_ORIGIN_REGEX = re.compile(r"^http://(localhost|127\.0\.0\.1):\d+$")
+
+
+def _is_allowed_origin(origin: str) -> bool:
+    if not origin:
+        return False
+    if origin in _cors_allow_origins():
+        return True
+    return bool(_CORS_ORIGIN_REGEX.match(origin))
+
+
+class ForceCORSHeadersMiddleware(BaseHTTPMiddleware):
+    """
+    Ensure CORS headers are on every response (including 401/5xx).
+    Some proxies or exception paths can omit them; this guarantees them for allowed origins.
+    """
+
+    async def dispatch(self, request: Request, call_next) -> Response:
+        response = await call_next(request)
+        origin = request.headers.get("origin")
+        if not _is_allowed_origin(origin):
+            return response
+        # Force CORS headers so they are never missing (e.g. on 401 or OPTIONS)
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PATCH, PUT, DELETE, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, Accept"
+        return response
+
+
 app = FastAPI(title="Editor Tracker API")
+# Outermost: force CORS on every response for allowed origins (including errors)
+app.add_middleware(ForceCORSHeadersMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_allow_origins(),
-    # Browsers treat localhost vs 127.0.0.1 as different origins; this covers any Vite port.
     allow_origin_regex=r"http://(localhost|127\.0\.0\.1):\d+",
     allow_credentials=False,
     allow_methods=["*"],
