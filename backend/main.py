@@ -42,10 +42,28 @@ def set_updated_at(mapper, connection, target: Deliverable) -> None:
     target.updated_at = datetime.utcnow()
 
 
+def _cors_allow_origins() -> List[str]:
+    """
+    Comma-separated list in CORS_ORIGINS (e.g. https://app.example.com,http://localhost:5173).
+    If unset, use a small default set for local dev.
+    """
+    raw = os.getenv("CORS_ORIGINS", "").strip()
+    if raw:
+        return [o.strip() for o in raw.split(",") if o.strip()]
+    return [
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:3000",
+    ]
+
+
 app = FastAPI(title="Editor Tracker API")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=_cors_allow_origins(),
+    # Browsers treat localhost vs 127.0.0.1 as different origins; this covers any Vite port.
+    allow_origin_regex=r"http://(localhost|127\.0\.0\.1):\d+",
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
