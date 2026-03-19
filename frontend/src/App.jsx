@@ -43,6 +43,9 @@ function App() {
     type: 'short',
     title: '',
     description: '',
+    source_id: null,
+    source_title: '',
+    duration_sec: null,
     source_url: '',
     status: 'incomplete',
     price_mode: 'auto',
@@ -65,6 +68,9 @@ function App() {
     type: 'short',
     title: '',
     description: '',
+    source_id: null,
+    source_title: '',
+    duration_sec: null,
     source_url: '',
     status: 'incomplete',
     price_mode: 'auto',
@@ -91,6 +97,10 @@ function App() {
 
   const [clientSources, setClientSources] = useState([])
   const [clientSourcesLoading, setClientSourcesLoading] = useState(false)
+
+  const [sourcesClientId, setSourcesClientId] = useState('')
+  const [sourcesPlatform, setSourcesPlatform] = useState('twitch')
+  const [deliverablesSourcePlatform, setDeliverablesSourcePlatform] = useState('twitch')
 
   const clientById = useMemo(() => {
     const m = new Map()
@@ -158,6 +168,13 @@ function App() {
     if (activeTab === 'billing') refreshBilling()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab])
+
+  useEffect(() => {
+    if (activeTab === 'sources' && clients.length && !sourcesClientId) {
+      setSourcesClientId(String(clients[0].id))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, clients])
 
   async function onCreateClient(e) {
     e.preventDefault()
@@ -255,6 +272,27 @@ function App() {
     }
   }
 
+  function startDeliverableForClient(clientId, isArchived = false) {
+    if (isArchived) {
+      setError('Restore this client before creating a deliverable.')
+      return
+    }
+    setError(null)
+    setActiveTab('deliverables')
+    setDeliverableForm((f) => ({
+      ...f,
+      client_id: String(clientId),
+      title: '',
+      description: '',
+      source_id: null,
+      source_title: '',
+      duration_sec: null,
+      source_url: '',
+      price_value: '',
+      price_mode: 'auto',
+    }))
+  }
+
   async function onCreateDeliverable(e) {
     e.preventDefault()
     setError(null)
@@ -264,6 +302,9 @@ function App() {
         type: deliverableForm.type,
         title: deliverableForm.title.trim(),
         description: deliverableForm.description?.trim() || null,
+        source_id: deliverableForm.source_id != null ? Number(deliverableForm.source_id) : null,
+        source_title: deliverableForm.source_title?.trim() || null,
+        duration_sec: deliverableForm.duration_sec != null ? Number(deliverableForm.duration_sec) : null,
         source_url: deliverableForm.source_url?.trim() || null,
         status: deliverableForm.status,
         price_mode: deliverableForm.price_mode,
@@ -283,6 +324,9 @@ function App() {
         ...f,
         title: '',
         description: '',
+        source_id: null,
+        source_title: '',
+        duration_sec: null,
         source_url: '',
         price_value: '',
       }))
@@ -298,6 +342,9 @@ function App() {
       type: d.type ?? 'short',
       title: d.title ?? '',
       description: d.description ?? '',
+      source_id: d.source_id ?? null,
+      source_title: d.source_title ?? '',
+      duration_sec: d.duration_sec ?? null,
       source_url: d.source_url ?? '',
       status: d.status ?? 'incomplete',
       price_mode: d.price_mode ?? 'auto',
@@ -315,6 +362,10 @@ function App() {
         type: deliverableEditForm.type,
         title: deliverableEditForm.title.trim(),
         description: deliverableEditForm.description?.trim() || null,
+        source_id: deliverableEditForm.source_id != null ? Number(deliverableEditForm.source_id) : null,
+        source_title: deliverableEditForm.source_title?.trim() || null,
+        duration_sec:
+          deliverableEditForm.duration_sec != null ? Number(deliverableEditForm.duration_sec) : null,
         source_url: deliverableEditForm.source_url?.trim() || null,
         status: deliverableEditForm.status,
         price_mode: deliverableEditForm.price_mode,
@@ -352,10 +403,13 @@ function App() {
     }
   }
 
-  async function onFetchTwitchSources(force = false) {
-    const clientId = deliverableForm.client_id
+  async function fetchSourcesForClient(clientId, platform, force = false) {
     if (!clientId) {
       setError('Select a client first')
+      return
+    }
+    if (platform !== 'twitch') {
+      setError('YouTube source fetch is not available yet.')
       return
     }
     setError(null)
@@ -374,9 +428,26 @@ function App() {
   function useSourceForDeliverable(source) {
     setDeliverableForm((f) => ({
       ...f,
+      source_id: source.id ?? null,
+      source_title: source.title ?? f.source_title,
+      duration_sec: source.duration_sec != null ? Number(source.duration_sec) : f.duration_sec,
       source_url: source.url || f.source_url,
       title: source.title?.trim() || f.title,
     }))
+  }
+
+  function createDeliverableFromSource(source, clientId) {
+    setError(null)
+    setDeliverableForm((f) => ({
+      ...f,
+      client_id: String(clientId),
+      source_id: source.id ?? null,
+      source_title: source.title ?? '',
+      duration_sec: source.duration_sec != null ? Number(source.duration_sec) : null,
+      source_url: source.url || '',
+      title: source.title?.trim() || '',
+    }))
+    setActiveTab('deliverables')
   }
 
   async function onCreateInvoice(e) {
@@ -425,6 +496,13 @@ function App() {
             onClick={() => setActiveTab('deliverables')}
           >
             Deliverables
+          </button>
+          <button
+            type="button"
+            className={activeTab === 'sources' ? 'tab active' : 'tab'}
+            onClick={() => setActiveTab('sources')}
+          >
+            Sources
           </button>
           <button
             type="button"
@@ -667,6 +745,13 @@ function App() {
                         <td>${Number(c.price_video).toFixed(2)}</td>
                         <td className="muted">{c.notes || ''}</td>
                         <td>
+                          <button
+                            type="button"
+                            className="ghost smallBtn"
+                            onClick={() => startDeliverableForClient(c.id, false)}
+                          >
+                            New deliverable
+                          </button>
                           <button type="button" className="ghost smallBtn" onClick={() => openClientEdit(c)}>
                             Edit
                           </button>
@@ -719,6 +804,13 @@ function App() {
                           <td>${Number(c.price_video).toFixed(2)}</td>
                           <td className="muted">{c.notes || ''}</td>
                           <td>
+                            <button
+                              type="button"
+                              className="ghost smallBtn"
+                              onClick={() => startDeliverableForClient(c.id, true)}
+                            >
+                              New deliverable
+                            </button>
                             <button type="button" className="ghost smallBtn" onClick={() => restoreClient(c.id)}>
                               Restore
                             </button>
@@ -777,6 +869,114 @@ function App() {
                     <option value="video">Video</option>
                   </select>
                 </label>
+
+                {deliverableForm.client_id ? (
+                  <div className="span2 sourceFetchPanel">
+                    <h3 className="subhead">Source fetching</h3>
+                    <p id="deliverable-source-fetch-hint" className="muted" style={{ marginBottom: '0.75rem' }}>
+                      Fetch clips for the selected client, then use a row to fill title and source URL below.
+                      Twitch is live; YouTube is coming soon. Results are cached for 10 minutes.
+                    </p>
+                    <div className="sourceFetchControls">
+                      <label className="sourceFetchPlatform">
+                        <div className="label">Platform</div>
+                        <select
+                          value={deliverablesSourcePlatform}
+                          onChange={(e) => {
+                            setDeliverablesSourcePlatform(e.target.value)
+                            setClientSources([])
+                          }}
+                        >
+                          <option value="twitch">Twitch (implemented)</option>
+                          <option value="youtube">YouTube (coming soon)</option>
+                        </select>
+                      </label>
+                      <div className="row sourceFetchButtons">
+                        <button
+                          type="button"
+                          className="primary"
+                          onClick={() =>
+                            fetchSourcesForClient(
+                              deliverableForm.client_id,
+                              deliverablesSourcePlatform,
+                              false,
+                            )
+                          }
+                          disabled={
+                            clientSourcesLoading || deliverablesSourcePlatform !== 'twitch'
+                          }
+                        >
+                          {clientSourcesLoading ? 'Fetching…' : 'Fetch sources'}
+                        </button>
+                        <button
+                          type="button"
+                          className="ghost"
+                          onClick={() =>
+                            fetchSourcesForClient(
+                              deliverableForm.client_id,
+                              deliverablesSourcePlatform,
+                              true,
+                            )
+                          }
+                          disabled={
+                            clientSourcesLoading || deliverablesSourcePlatform !== 'twitch'
+                          }
+                        >
+                          Force refresh
+                        </button>
+                      </div>
+                    </div>
+                    {deliverablesSourcePlatform === 'youtube' ? (
+                      <p className="muted" style={{ marginBottom: '0.5rem' }}>
+                        YouTube integration will be available in a future update.
+                      </p>
+                    ) : null}
+                    {clientSources.length > 0 ? (
+                      <div className="tableWrap" style={{ marginTop: '0.75rem' }}>
+                        <table className="table">
+                          <thead>
+                            <tr>
+                              <th>Title</th>
+                              <th>Duration</th>
+                              <th>Link</th>
+                              <th>Action</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {clientSources.map((s) => (
+                              <tr key={s.id}>
+                                <td className="strong">{s.title || '—'}</td>
+                                <td className="muted">{s.duration_sec != null ? `${s.duration_sec}s` : '—'}</td>
+                                <td className="sourceUrlCell">
+                                  {s.url ? (
+                                    <a href={s.url} target="_blank" rel="noopener noreferrer">
+                                      Clip
+                                    </a>
+                                  ) : (
+                                    '—'
+                                  )}
+                                </td>
+                                <td>
+                                  <button
+                                    type="button"
+                                    className="ghost smallBtn"
+                                    onClick={() => useSourceForDeliverable(s)}
+                                  >
+                                    Use for deliverable
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : (
+                  <p className="span2 muted" style={{ margin: 0 }}>
+                    Select a client to fetch Twitch clips and fill source URL from here.
+                  </p>
+                )}
 
                 <label className="span2">
                   <div className="label">Title</div>
@@ -878,69 +1078,6 @@ function App() {
                 </button>
               </div>
             </form>
-
-            {deliverableForm.client_id ? (
-              <div className="form">
-                <h3 className="subhead">Twitch sources</h3>
-                <p className="muted" style={{ marginBottom: '0.5rem' }}>
-                  Fetch clips for this client (uses Twitch channel name from client socials). Results are cached for 10 minutes.
-                </p>
-                <div className="row" style={{ gap: '0.5rem', marginBottom: '0.75rem' }}>
-                  <button
-                    type="button"
-                    className="primary"
-                    onClick={() => onFetchTwitchSources(false)}
-                    disabled={clientSourcesLoading}
-                  >
-                    {clientSourcesLoading ? 'Fetching…' : 'Fetch Twitch sources'}
-                  </button>
-                  <button
-                    type="button"
-                    className="ghost"
-                    onClick={() => onFetchTwitchSources(true)}
-                    disabled={clientSourcesLoading}
-                  >
-                    Force refresh
-                  </button>
-                </div>
-                {clientSources.length > 0 ? (
-                  <div className="tableWrap">
-                    <table className="table">
-                      <thead>
-                        <tr>
-                          <th>Title</th>
-                          <th>Duration</th>
-                          <th>Link</th>
-                          <th>Action</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {clientSources.map((s) => (
-                          <tr key={s.id}>
-                            <td className="strong">{s.title || '—'}</td>
-                            <td className="muted">{s.duration_sec != null ? `${s.duration_sec}s` : '—'}</td>
-                            <td className="sourceUrlCell">
-                              {s.url ? (
-                                <a href={s.url} target="_blank" rel="noopener noreferrer">Clip</a>
-                              ) : '—'}
-                            </td>
-                            <td>
-                              <button
-                                type="button"
-                                className="ghost smallBtn"
-                                onClick={() => useSourceForDeliverable(s)}
-                              >
-                                Use for deliverable
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
 
             {editingDeliverableId ? (
               <form className="form editForm" onSubmit={onUpdateDeliverable}>
@@ -1045,6 +1182,8 @@ function App() {
                     <th>Type</th>
                     <th>Status</th>
                     <th>Price</th>
+                    <th>Source</th>
+                    <th>Duration</th>
                     <th>Source URL</th>
                     <th>Created</th>
                     <th>Actions</th>
@@ -1066,6 +1205,12 @@ function App() {
                             {d.price_value != null
                               ? `$${Number(d.price_value).toFixed(2)}`
                               : ''}
+                          </td>
+                          <td className="muted">
+                            {d.source_title || '—'}
+                          </td>
+                          <td className="muted">
+                            {d.duration_sec != null ? `${d.duration_sec}s` : '—'}
                           </td>
                           <td className="muted sourceUrlCell">
                             {d.source_url ? (
@@ -1090,7 +1235,7 @@ function App() {
                     })
                   ) : (
                     <tr>
-                      <td colSpan="8" className="muted">
+                      <td colSpan="10" className="muted">
                         No deliverables yet.
                       </td>
                     </tr>
@@ -1111,6 +1256,8 @@ function App() {
                         <th>Type</th>
                         <th>Status</th>
                         <th>Price</th>
+                        <th>Source</th>
+                        <th>Duration</th>
                         <th>Source URL</th>
                         <th>Created</th>
                         <th>Actions</th>
@@ -1127,6 +1274,12 @@ function App() {
                             <td className={d.status === 'complete' ? 'ok' : 'muted'}>{d.status}</td>
                             <td>
                               {d.price_value != null ? `$${Number(d.price_value).toFixed(2)}` : ''}
+                            </td>
+                            <td className="muted">
+                              {d.source_title || '—'}
+                            </td>
+                            <td className="muted">
+                              {d.duration_sec != null ? `${d.duration_sec}s` : '—'}
                             </td>
                             <td className="muted sourceUrlCell">
                               {d.source_url ? (
@@ -1149,6 +1302,116 @@ function App() {
                 </div>
               </>
             ) : null}
+          </section>
+        ) : null}
+
+        {activeTab === 'sources' ? (
+          <section className="card">
+            <h2>Source fetching</h2>
+            <p className="muted" style={{ marginBottom: '1rem' }}>
+              Fetch clips for a client (Twitch is live; YouTube is coming soon). Results are cached for 10 minutes unless you force refresh.
+            </p>
+            <div className="form">
+              <div className="grid2">
+                <label>
+                  <div className="label">Client</div>
+                  <select
+                    value={sourcesClientId}
+                    onChange={(e) => {
+                      setSourcesClientId(e.target.value)
+                      setClientSources([])
+                    }}
+                  >
+                    <option value="" disabled>
+                      Select client…
+                    </option>
+                    {clients.map((c) => (
+                      <option key={c.id} value={String(c.id)}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <div className="label">Platform</div>
+                  <select
+                    value={sourcesPlatform}
+                    onChange={(e) => {
+                      setSourcesPlatform(e.target.value)
+                      setClientSources([])
+                    }}
+                  >
+                    <option value="twitch">Twitch (implemented)</option>
+                    <option value="youtube">YouTube (coming soon)</option>
+                  </select>
+                </label>
+              </div>
+              {sourcesPlatform === 'youtube' ? (
+                <p className="muted">YouTube integration will be available in a future update.</p>
+              ) : null}
+              <div className="row" style={{ gap: '0.5rem', marginBottom: '0.75rem' }}>
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={() => fetchSourcesForClient(sourcesClientId, sourcesPlatform, false)}
+                  disabled={
+                    clientSourcesLoading || !sourcesClientId || sourcesPlatform !== 'twitch'
+                  }
+                >
+                  {clientSourcesLoading ? 'Fetching…' : 'Fetch sources'}
+                </button>
+                <button
+                  type="button"
+                  className="ghost"
+                  onClick={() => fetchSourcesForClient(sourcesClientId, sourcesPlatform, true)}
+                  disabled={
+                    clientSourcesLoading || !sourcesClientId || sourcesPlatform !== 'twitch'
+                  }
+                >
+                  Force refresh
+                </button>
+              </div>
+              {clientSources.length > 0 ? (
+                <div className="tableWrap">
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Title</th>
+                        <th>Duration</th>
+                        <th>Link</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {clientSources.map((s) => (
+                        <tr key={s.id}>
+                          <td className="strong">{s.title || '—'}</td>
+                          <td className="muted">{s.duration_sec != null ? `${s.duration_sec}s` : '—'}</td>
+                          <td className="sourceUrlCell">
+                            {s.url ? (
+                              <a href={s.url} target="_blank" rel="noopener noreferrer">
+                                Clip
+                              </a>
+                            ) : (
+                              '—'
+                            )}
+                          </td>
+                          <td>
+                            <button
+                              type="button"
+                              className="ghost smallBtn"
+                              onClick={() => createDeliverableFromSource(s, sourcesClientId)}
+                            >
+                              Create deliverable
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
+            </div>
           </section>
         ) : null}
 

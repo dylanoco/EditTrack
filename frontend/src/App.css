@@ -196,6 +196,37 @@ select {
 }
 
 .socialsCell,
+.sourceFetchPanel {
+  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+  margin-top: 0.25rem;
+}
+
+.sourceFetchControls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.sourceFetchPlatform {
+  flex: 0 1 200px;
+}
+
+.sourceFetchPlatform .label {
+  margin-bottom: 4px;
+}
+
+.sourceFetchPlatform select {
+  width: 100%;
+}
+
+.sourceFetchButtons {
+  flex: 1 1 auto;
+  gap: 8px;
+  margin: 0;
+}
+
 .sourceUrlCell {
   white-space: normal;
   max-width: 120px;

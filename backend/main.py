@@ -253,12 +253,22 @@ def create_deliverable(
     if client.archived:
         raise HTTPException(status_code=400, detail="Client is archived")
 
+    source: Optional[Source] = None
     if payload.source_id is not None:
         source = db.get(Source, payload.source_id)
         if not source:
             raise HTTPException(status_code=400, detail="Source does not exist")
+        if source.client_id != payload.client_id:
+            raise HTTPException(status_code=400, detail="Source does not belong to this client")
 
     data = payload.model_dump()
+    if source is not None:
+        if not data.get("source_title"):
+            data["source_title"] = source.title
+        if data.get("duration_sec") is None:
+            data["duration_sec"] = source.duration_sec
+        if not data.get("source_url"):
+            data["source_url"] = source.url
 
     if payload.price_mode == "auto":
         data["price_value"] = _auto_price_for_deliverable(payload, client)
@@ -328,6 +338,25 @@ def update_deliverable(
             raise HTTPException(status_code=400, detail="Client does not exist")
         if new_client.archived:
             raise HTTPException(status_code=400, detail="Client is archived")
+
+    if "source_id" in data:
+        source_id = data["source_id"]
+        if source_id is None:
+            data.setdefault("source_title", None)
+            data.setdefault("duration_sec", None)
+        else:
+            source = db.get(Source, source_id)
+            if not source:
+                raise HTTPException(status_code=400, detail="Source does not exist")
+            target_client_id = data.get("client_id", deliverable.client_id)
+            if source.client_id != target_client_id:
+                raise HTTPException(status_code=400, detail="Source does not belong to this client")
+            if data.get("source_title") is None:
+                data["source_title"] = source.title
+            if data.get("duration_sec") is None:
+                data["duration_sec"] = source.duration_sec
+            if data.get("source_url") is None:
+                data["source_url"] = source.url
 
     if "price_mode" in data or "price_value" in data:
         price_mode = data.get("price_mode", deliverable.price_mode)
