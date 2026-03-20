@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { createDeliverable, fetchClient, fetchDeliverables, fetchClientSources, syncClientSources } from '../api'
+import { SourceCardGrid } from '../components/SourceCardGrid'
+import { useNotifications } from '../contexts/NotificationsContext'
 
 const initialDeliverable = {
   type: 'short',
@@ -17,6 +19,8 @@ const initialDeliverable = {
 
 export function ClientPage() {
   const { id } = useParams()
+  const navigate = useNavigate()
+  const { addNotification } = useNotifications()
   const clientId = Number(id)
   const [client, setClient] = useState(null)
   const [deliverables, setDeliverables] = useState([])
@@ -66,6 +70,10 @@ export function ClientPage() {
     }))
   }
 
+  function createDeliverableFromSource(src) {
+    navigate('/deliverables/create', { state: { source: src, clientId } })
+  }
+
   async function onCreateDeliverable(e) {
     e.preventDefault()
     setError(null)
@@ -80,6 +88,7 @@ export function ClientPage() {
         duration_sec: form.duration_sec != null ? Number(form.duration_sec) : null,
         price_value: form.price_mode === 'override' ? Number(form.price_value) : null,
       })
+      addNotification({ type: 'success', title: 'Deliverable created', message: form.title?.trim() || 'New deliverable' })
       setForm(initialDeliverable)
       refresh()
     } catch (e) {
@@ -92,6 +101,7 @@ export function ClientPage() {
     setError(null)
     try {
       const rows = await syncClientSources(clientId, 'twitch', force)
+      addNotification({ type: 'success', title: 'Sources synced', message: `Fetched ${rows.length} Twitch clip(s)` })
       setSources(rows)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -157,7 +167,7 @@ export function ClientPage() {
       </section>
 
       <section className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">Sources (Twitch)</h2>
           <div className="flex gap-2">
             <button type="button" onClick={() => onSyncSources(false)} disabled={syncing} className="rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:hover:bg-gray-700">
@@ -168,20 +178,14 @@ export function ClientPage() {
             </button>
           </div>
         </div>
-        {sources.length === 0 ? <p className="text-sm text-gray-500 dark:text-gray-400">No sources yet.</p> : (
-          <div className="space-y-2">
-            {sources.slice(0, 12).map((s) => (
-              <div key={s.id} className="flex items-center justify-between rounded-lg border border-gray-200 p-3 dark:border-gray-700">
-                <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">{s.title}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{s.duration_sec ?? 0}s</p>
-                </div>
-                <button type="button" onClick={() => useSource(s)} className="rounded-lg bg-violet-600 px-3 py-1.5 text-sm text-white hover:bg-violet-700">
-                  Use source
-                </button>
-              </div>
-            ))}
-          </div>
+        {sources.length === 0 ? (
+          <p className="text-sm text-gray-500 dark:text-gray-400">No sources yet.</p>
+        ) : (
+          <SourceCardGrid
+            sources={sources}
+            onUseSource={useSource}
+            onOpenVideo={null}
+          />
         )}
       </section>
 
@@ -192,7 +196,19 @@ export function ClientPage() {
             {deliverables.slice(0, 10).map((d) => (
               <div key={d.id} className="flex items-center justify-between rounded-lg border border-gray-200 p-3 text-sm dark:border-gray-700">
                 <span className="text-gray-900 dark:text-white">{d.title}</span>
-                <span className="text-gray-500 dark:text-gray-400">{d.status} · ${Number(d.price_value || 0).toFixed(2)}</span>
+                <div className="flex items-center gap-2">
+                  {d.source_url ? (
+                    <a
+                      href={d.source_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-violet-600 hover:text-violet-700 text-sm font-medium"
+                    >
+                      Open source
+                    </a>
+                  ) : null}
+                  <span className="text-gray-500 dark:text-gray-400">{d.status} · {(d.payment_status || 'unpaid')} · ${Number(d.price_value || 0).toFixed(2)}</span>
+                </div>
               </div>
             ))}
           </div>

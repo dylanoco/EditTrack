@@ -77,23 +77,35 @@ class ForceCORSHeadersMiddleware(BaseHTTPMiddleware):
     """
     Ensure CORS headers are on every response (including 401/5xx).
     Some proxies or exception paths can omit them; this guarantees them for allowed origins.
+    Also answers browser OPTIONS preflight here (outermost) so it cannot fail inside the stack.
     """
 
     async def dispatch(self, request: Request, call_next) -> Response:
-        response = await call_next(request)
         origin = request.headers.get("origin")
-        if not _is_allowed_origin(origin):
+        cors_headers = {
+            "Access-Control-Allow-Origin": origin or "",
+            "Access-Control-Allow-Methods": "GET, POST, PATCH, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "Authorization, Content-Type, Accept",
+            "Access-Control-Max-Age": "86400",
+        }
+
+        if request.method == "OPTIONS" and origin and _is_allowed_origin(origin):
+            return Response(status_code=200, headers=cors_headers)
+
+        response = await call_next(request)
+        if not origin or not _is_allowed_origin(origin):
             return response
-        # Force CORS headers so they are never missing (e.g. on 401 or OPTIONS)
-        response.headers["Access-Control-Allow-Origin"] = origin
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PATCH, PUT, DELETE, OPTIONS"
-        response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, Accept"
+        for key, value in cors_headers.items():
+            if key == "Access-Control-Max-Age":
+                continue
+            response.headers[key] = value
         return response
 
 
 app = FastAPI(title="Editor Tracker API")
-# Outermost: force CORS on every response for allowed origins (including errors)
-app.add_middleware(ForceCORSHeadersMiddleware)
+# Middleware runs in reverse add-order on the request; on the response, inner runs first.
+# Add CORSMiddleware first (inner), then ForceCORS (outer) so ForceCORS runs LAST on the
+# response and wins — Starlette's CORS layer can omit headers on some error paths.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_allow_origins(),
@@ -102,6 +114,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(ForceCORSHeadersMiddleware)
 
 
 @app.on_event("startup")
@@ -527,6 +540,7 @@ def sync_client_sources(
             continue
         title = clip.get("title") or "Untitled clip"
         url = clip.get("url")
+        thumbnail_url = clip.get("thumbnail_url")
         duration = clip.get("duration")
         duration_sec = int(duration) if duration is not None else None
 
@@ -534,6 +548,7 @@ def sync_client_sources(
             src = existing_by_ext[ext_id]
             src.title = title
             src.url = url
+            src.thumbnail_url = thumbnail_url
             src.duration_sec = duration_sec
             src.fetched_at = now
         else:
@@ -543,6 +558,7 @@ def sync_client_sources(
                 external_id=ext_id,
                 title=title,
                 url=url,
+                thumbnail_url=thumbnail_url,
                 duration_sec=duration_sec,
                 fetched_at=now,
                 owner_user_id=current_user.id,
@@ -820,9 +836,10 @@ def dashboard_overview(
             "avg_per_deliverable": float(best.avg_per_deliverable),
         }
 
+    bucket_expr = func.to_char(func.date_trunc("month", dts), "YYYY-MM")
     trend_stmt = (
         select(
-            func.to_char(func.date_trunc("month", dts), "YYYY-MM").label("bucket"),
+            bucket_expr.label("bucket"),
             func.coalesce(
                 func.sum(case((Deliverable.payment_status == "paid", Deliverable.price_value), else_=0)),
                 0,
@@ -837,8 +854,8 @@ def dashboard_overview(
         .select_from(Deliverable)
         .join(Client, Client.id == Deliverable.client_id)
         .where(and_(*conditions))
-        .group_by("bucket")
-        .order_by("bucket")
+        .group_by(bucket_expr)
+        .order_by(bucket_expr)
     )
     trend_rows = db.execute(trend_stmt).all()
 

@@ -121,6 +121,11 @@ class Source(Base):
         nullable=True,
         doc="Canonical or user-provided URL, may be null for manual sources.",
     )
+    thumbnail_url: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+        doc="Thumbnail image URL (e.g. from Twitch clips API).",
+    )
     title: Mapped[str] = mapped_column(Text, nullable=False)
     duration_sec: Mapped[Optional[int]] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(

@@ -6,6 +6,13 @@ function getAccessToken() {
   return localStorage.getItem('edittrack_token')
 }
 
+export function clearAuth() {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('edittrack_token')
+    localStorage.removeItem('edittrack_user')
+  }
+}
+
 async function request(path, { method = 'GET', body } = {}) {
   const token = getAccessToken()
   const headers = {}
@@ -20,6 +27,12 @@ async function request(path, { method = 'GET', body } = {}) {
 
   const text = await res.text()
   const data = text ? JSON.parse(text) : null
+
+  if (res.status === 401) {
+    clearAuth()
+    window.location.href = '/login'
+    throw new Error('Session expired')
+  }
 
   if (!res.ok) {
     const msg =
@@ -41,6 +54,10 @@ export async function login(payload) {
 
 export async function fetchMe() {
   return request('/auth/me')
+}
+
+export async function updateProfile(payload) {
+  return request('/auth/me', { method: 'PATCH', body: payload })
 }
 
 export async function fetchDashboardOverview(params = {}) {

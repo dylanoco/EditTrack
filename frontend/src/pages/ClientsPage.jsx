@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { createClient, fetchClients } from '../api'
+import { useNotifications } from '../contexts/NotificationsContext'
+import { useSearch } from '../contexts/SearchContext'
 
 const initialForm = {
   name: '',
@@ -15,9 +17,10 @@ const initialForm = {
 
 export function ClientsPage() {
   const navigate = useNavigate()
+  const { query } = useSearch()
+  const { addNotification } = useNotifications()
   const [clients, setClients] = useState([])
   const [form, setForm] = useState(initialForm)
-  const [query, setQuery] = useState('')
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
 
@@ -60,6 +63,7 @@ export function ClientsPage() {
         price_thumbnail: Number(form.price_thumbnail),
         price_video: Number(form.price_video),
       })
+      addNotification({ type: 'success', title: 'Client created', message: form.name.trim() })
       setForm(initialForm)
       refresh()
     } catch (e) {
@@ -101,7 +105,7 @@ export function ClientsPage() {
       <section className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
         <div className="mb-3 flex items-center justify-between gap-3">
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">Client list</h2>
-          <input placeholder="Search clients..." value={query} onChange={(e) => setQuery(e.target.value)} className="w-60 rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700" />
+          <p className="text-sm text-gray-500 dark:text-gray-400">Use the search bar above to filter.</p>
         </div>
         {loading ? (
           <p className="text-sm text-gray-500 dark:text-gray-400">Loading...</p>

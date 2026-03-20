@@ -75,6 +75,7 @@ class SourceBase(BaseModel):
     platform: str = Field(description="twitch | youtube | external | manual | other")
     title: str
     url: Optional[str] = None
+    thumbnail_url: Optional[str] = None
     external_id: Optional[str] = None
     duration_sec: Optional[int] = None
 

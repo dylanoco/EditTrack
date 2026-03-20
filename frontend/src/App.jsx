@@ -3,7 +3,10 @@ import { Layout } from './components/layout/Layout'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { LegacyContent } from './LegacyContent'
 import { ClientPage } from './pages/ClientPage'
-import { ClientsPage } from './pages/ClientsPage'
+import { ClientsListPage } from './pages/ClientsListPage'
+import { CreateClientPage } from './pages/CreateClientPage'
+import { CreateDeliverablePage } from './pages/CreateDeliverablePage'
+import { DeliverablesListPage } from './pages/DeliverablesListPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { LoginPage } from './pages/LoginPage'
 import { OAuthCallbackPage } from './pages/OAuthCallbackPage'
@@ -26,9 +29,11 @@ function App() {
       >
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
-        <Route path="clients" element={<ClientsPage />} />
+        <Route path="clients" element={<ClientsListPage />} />
+        <Route path="clients/create" element={<CreateClientPage />} />
         <Route path="clients/:id" element={<ClientPage />} />
-        <Route path="deliverables" element={<LegacyContent activeTab="deliverables" />} />
+        <Route path="deliverables" element={<DeliverablesListPage />} />
+        <Route path="deliverables/create" element={<CreateDeliverablePage />} />
         <Route path="sources" element={<LegacyContent activeTab="sources" />} />
         <Route path="billing" element={<LegacyContent activeTab="billing" />} />
         <Route path="settings" element={<SettingsPage />} />

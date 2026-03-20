@@ -2,12 +2,15 @@ import { Bell, ChevronDown, Moon, Search, Sun, User } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
+import { useNotifications } from '../../contexts/NotificationsContext'
+import { useSearch } from '../../contexts/SearchContext'
 import { useTheme } from '../../contexts/ThemeContext'
-import { clsx } from 'clsx'
 
 export function Topbar() {
   const { user, logout } = useAuth()
   const { theme, toggleTheme } = useTheme()
+  const { items, unreadCount, markAllRead, clearAll } = useNotifications()
+  const { query, setQuery } = useSearch()
   const [profileOpen, setProfileOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
   const navigate = useNavigate()
@@ -20,7 +23,9 @@ export function Topbar() {
           <input
             type="search"
             placeholder="Search clients…"
-            className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-sm placeholder-gray-500 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:placeholder-gray-400"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-sm text-gray-900 placeholder-gray-500 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400"
           />
         </div>
       </div>
@@ -43,13 +48,41 @@ export function Topbar() {
             aria-label="Notifications"
           >
             <Bell className="h-5 w-5" />
-            <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-violet-500 text-[10px] font-medium text-white">0</span>
+            {unreadCount > 0 && (
+              <span className="absolute right-1 top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-violet-500 px-1 text-[10px] font-medium text-white">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
           </button>
           {notifOpen && (
             <>
               <div className="fixed inset-0 z-10" aria-hidden onClick={() => setNotifOpen(false)} />
-              <div className="absolute right-0 top-full z-20 mt-1 w-72 rounded-lg border border-gray-200 bg-white py-2 shadow-lg dark:border-gray-700 dark:bg-gray-800">
-                <p className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">No notifications yet.</p>
+              <div className="absolute right-0 top-full z-20 mt-1 w-80 rounded-lg border border-gray-200 bg-white py-2 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                <div className="flex items-center justify-between px-3 pb-2">
+                  <span className="text-sm font-medium text-gray-900 dark:text-white">Notifications</span>
+                  {items.length > 0 && (
+                    <div className="flex gap-1">
+                      <button type="button" onClick={markAllRead} className="text-xs text-violet-600 hover:underline dark:text-violet-400">
+                        Mark read
+                      </button>
+                      <button type="button" onClick={clearAll} className="text-xs text-gray-500 hover:underline dark:text-gray-400">
+                        Clear
+                      </button>
+                    </div>
+                  )}
+                </div>
+                {items.length === 0 ? (
+                  <p className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">No notifications yet.</p>
+                ) : (
+                  <div className="max-h-64 overflow-y-auto">
+                    {items.map((n) => (
+                      <div key={n.id} className={`border-b border-gray-100 px-3 py-2 last:border-0 dark:border-gray-700 ${!n.read ? 'bg-violet-50/50 dark:bg-violet-900/10' : ''}`}>
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">{n.title}</p>
+                        {n.message && <p className="text-xs text-gray-500 dark:text-gray-400">{n.message}</p>}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </>
           )}
@@ -61,9 +94,13 @@ export function Topbar() {
             onClick={() => { setProfileOpen(!profileOpen); setNotifOpen(false) }}
             className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-gray-100 dark:hover:bg-gray-800"
           >
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-violet-100 text-violet-600 dark:bg-violet-900/50 dark:text-violet-300">
-              <User className="h-4 w-4" />
-            </div>
+            {user?.avatar_url ? (
+              <img src={user.avatar_url} alt="" className="h-8 w-8 rounded-full object-cover" />
+            ) : (
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-violet-100 text-violet-600 dark:bg-violet-900/50 dark:text-violet-300">
+                <User className="h-4 w-4" />
+              </div>
+            )}
             <span className="hidden text-sm font-medium text-gray-700 dark:text-gray-200 sm:block">
               {user?.display_name || user?.email || 'Account'}
             </span>
