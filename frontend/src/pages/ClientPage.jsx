@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { X } from 'lucide-react'
 import { createDeliverable, fetchClient, fetchDeliverables, fetchClientSources, syncClientSources } from '../api'
+import { EditClientModal } from '../components/EditClientModal'
 import { SourceCardGrid } from '../components/SourceCardGrid'
 import { useNotifications } from '../contexts/NotificationsContext'
 
@@ -29,6 +31,8 @@ export function ClientPage() {
   const [form, setForm] = useState(initialDeliverable)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [editClientModalOpen, setEditClientModalOpen] = useState(false)
+  const [sourcesModalOpen, setSourcesModalOpen] = useState(false)
 
   async function refresh() {
     setLoading(true)
@@ -70,6 +74,16 @@ export function ClientPage() {
     }))
   }
 
+  function openSourcesModal() {
+    setSourcesModalOpen(true)
+    if (sources.length === 0) onSyncSources(false)
+  }
+
+  function useSourceAndClose(src) {
+    useSource(src)
+    setSourcesModalOpen(false)
+  }
+
   function createDeliverableFromSource(src) {
     navigate('/deliverables/create', { state: { source: src, clientId } })
   }
@@ -78,16 +92,22 @@ export function ClientPage() {
     e.preventDefault()
     setError(null)
     try {
-      await createDeliverable({
+      const payload = {
         client_id: clientId,
-        ...form,
+        type: form.type,
         title: form.title.trim(),
-        description: form.description.trim() || null,
+        description: form.description?.trim() || null,
+        source_id: form.source_id != null ? Number(form.source_id) : null,
         source_title: form.source_title?.trim() || null,
-        source_url: form.source_url?.trim() || null,
         duration_sec: form.duration_sec != null ? Number(form.duration_sec) : null,
-        price_value: form.price_mode === 'override' ? Number(form.price_value) : null,
-      })
+        source_url: form.source_url?.trim() || null,
+        status: form.status,
+        price_mode: form.price_mode,
+      }
+      if (payload.price_mode === 'override' && form.price_value) {
+        payload.price_value = Number(form.price_value)
+      }
+      await createDeliverable(payload)
       addNotification({ type: 'success', title: 'Deliverable created', message: form.title?.trim() || 'New deliverable' })
       setForm(initialDeliverable)
       refresh()
@@ -113,107 +133,274 @@ export function ClientPage() {
   if (loading) return <p className="text-sm text-gray-500 dark:text-gray-400">Loading client...</p>
   if (!client) return <p className="text-sm text-gray-500 dark:text-gray-400">Client not found.</p>
 
+  const inputClass =
+    'w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder-gray-500 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400'
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">{client.name}</h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Twitch: {client.socials?.twitch || 'not set'} · <Link to="/clients" className="text-violet-600 dark:text-violet-400">Back to clients</Link>
+            <Link to="/clients" className="text-violet-600 dark:text-violet-400">Back to clients</Link>
           </p>
         </div>
+        <button
+          type="button"
+          onClick={() => setEditClientModalOpen(true)}
+          className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700"
+        >
+          Edit client
+        </button>
       </div>
-      {error ? <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-700 dark:border-red-700 dark:bg-red-900/20 dark:text-red-300">{error}</div> : null}
 
-      <section className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-          <p className="text-xs text-gray-500 dark:text-gray-400">Paid</p>
-          <p className="text-xl font-semibold text-gray-900 dark:text-white">${totals.paid.toFixed(2)}</p>
+      {error ? (
+        <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-700 dark:border-red-700 dark:bg-red-900/20 dark:text-red-300">
+          {error}
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-          <p className="text-xs text-gray-500 dark:text-gray-400">Unpaid</p>
-          <p className="text-xl font-semibold text-gray-900 dark:text-white">${totals.unpaid.toFixed(2)}</p>
-        </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-          <p className="text-xs text-gray-500 dark:text-gray-400">Total</p>
-          <p className="text-xl font-semibold text-gray-900 dark:text-white">${totals.total.toFixed(2)}</p>
-        </div>
-      </section>
+      ) : null}
 
-      <section className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-        <h2 className="text-lg font-medium text-gray-900 dark:text-white">Create deliverable</h2>
-        <form className="mt-3 grid gap-3 md:grid-cols-2" onSubmit={onCreateDeliverable}>
-          <select value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))} className="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-600 dark:bg-gray-700">
-            <option value="short">Short</option>
-            <option value="thumbnail">Thumbnail</option>
-            <option value="video">Video</option>
-          </select>
-          <input required placeholder="Title" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} className="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-600 dark:bg-gray-700" />
-          <input placeholder="Source title" value={form.source_title} onChange={(e) => setForm((f) => ({ ...f, source_title: e.target.value }))} className="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-600 dark:bg-gray-700" />
-          <input placeholder="Source URL" value={form.source_url} onChange={(e) => setForm((f) => ({ ...f, source_url: e.target.value }))} className="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-600 dark:bg-gray-700" />
-          <input placeholder="Duration seconds" type="number" value={form.duration_sec ?? ''} onChange={(e) => setForm((f) => ({ ...f, duration_sec: e.target.value ? Number(e.target.value) : null }))} className="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-600 dark:bg-gray-700" />
-          <select value={form.price_mode} onChange={(e) => setForm((f) => ({ ...f, price_mode: e.target.value }))} className="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-600 dark:bg-gray-700">
-            <option value="auto">Auto price</option>
-            <option value="override">Manual override</option>
-          </select>
-          {form.price_mode === 'override' ? (
-            <input placeholder="Manual price" type="number" step="0.01" value={form.price_value} onChange={(e) => setForm((f) => ({ ...f, price_value: e.target.value }))} className="rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-600 dark:bg-gray-700" />
-          ) : null}
-          <textarea placeholder="Description" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} className="md:col-span-2 rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-600 dark:bg-gray-700" />
-          <div className="md:col-span-2">
-            <button type="submit" className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700">Create deliverable</button>
+      <div className="flex items-center gap-3">
+        <span className="text-sm text-gray-600 dark:text-gray-400">
+          Paid: <strong className="text-green-600 dark:text-green-400">${totals.paid.toFixed(2)}</strong>
+        </span>
+        <span className="text-sm text-gray-600 dark:text-gray-400">
+          Unpaid: <strong className="text-amber-600 dark:text-amber-400">${totals.unpaid.toFixed(2)}</strong>
+        </span>
+      </div>
+
+      <div className="mx-auto max-w-xl rounded-2xl border border-gray-200 bg-white p-6 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+        <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-6">Create deliverable</h2>
+        <form onSubmit={onCreateDeliverable} className="space-y-6">
+          <div className="space-y-4">
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Type</span>
+              <select
+                value={form.type}
+                onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}
+                className={inputClass}
+              >
+                <option value="short">Short</option>
+                <option value="thumbnail">Thumbnail</option>
+                <option value="video">Video</option>
+              </select>
+            </label>
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Title</span>
+              <input
+                required
+                type="text"
+                placeholder="e.g. Clip highlights #12"
+                value={form.title}
+                onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                className={inputClass}
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Description</span>
+              <input
+                type="text"
+                placeholder="Optional"
+                value={form.description}
+                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                className={inputClass}
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Source URL</span>
+              <input
+                type="url"
+                placeholder="VoD or clip URL (optional)"
+                value={form.source_url}
+                onChange={(e) => setForm((f) => ({ ...f, source_url: e.target.value }))}
+                className={inputClass}
+              />
+            </label>
           </div>
+
+          <div className="border-t border-gray-200 pt-6 dark:border-gray-700">
+            <h2 className="mb-4 text-base font-bold text-gray-900 dark:text-white">Sources</h2>
+            <button
+              type="button"
+              onClick={openSourcesModal}
+              className="rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Fetch sources
+            </button>
+          </div>
+
+          <div className="border-t border-gray-200 pt-6 dark:border-gray-700">
+            <h2 className="mb-4 text-base font-bold text-gray-900 dark:text-white">Pricing</h2>
+            <div className="space-y-4">
+              <label className="block">
+                <span className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Price mode</span>
+                <select
+                  value={form.price_mode}
+                  onChange={(e) => setForm((f) => ({ ...f, price_mode: e.target.value }))}
+                  className={inputClass}
+                >
+                  <option value="auto">Auto (client rate)</option>
+                  <option value="override">Override (manual)</option>
+                </select>
+              </label>
+              {form.price_mode === 'override' ? (
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Manual price ($)</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={form.price_value}
+                    onChange={(e) => setForm((f) => ({ ...f, price_value: e.target.value }))}
+                    className={inputClass}
+                  />
+                </label>
+              ) : null}
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            className="w-full rounded-lg bg-violet-600 py-3 text-sm font-bold text-white hover:bg-violet-700"
+          >
+            Create deliverable
+          </button>
         </form>
-      </section>
 
-      <section className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-medium text-gray-900 dark:text-white">Sources (Twitch)</h2>
-          <div className="flex gap-2">
-            <button type="button" onClick={() => onSyncSources(false)} disabled={syncing} className="rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:hover:bg-gray-700">
-              {syncing ? 'Syncing...' : 'Sync sources'}
-            </button>
-            <button type="button" onClick={() => onSyncSources(true)} disabled={syncing} className="rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:hover:bg-gray-700">
-              Force refresh
-            </button>
+        <div className="border-t border-gray-200 pt-6 mt-6 dark:border-gray-700">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-base font-bold text-gray-900 dark:text-white">Sources (Twitch)</h2>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => onSyncSources(false)}
+                disabled={syncing}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:hover:bg-gray-700"
+              >
+                {syncing ? 'Syncing…' : 'Fetch sources'}
+              </button>
+              <button
+                type="button"
+                onClick={() => onSyncSources(true)}
+                disabled={syncing}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:hover:bg-gray-700"
+              >
+                Force refresh
+              </button>
+            </div>
+          </div>
+          {sources.length === 0 ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400">No sources yet.</p>
+          ) : (
+            <SourceCardGrid sources={sources} onUseSource={useSource} onOpenVideo={null} columns={3} />
+          )}
+        </div>
+
+        <div className="border-t border-gray-200 pt-6 mt-6 dark:border-gray-700">
+          <h2 className="mb-4 text-base font-bold text-gray-900 dark:text-white">Recent deliverables</h2>
+          {deliverables.length === 0 ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400">No deliverables yet.</p>
+          ) : (
+            <div className="overflow-x-auto -mx-2">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead>
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Title</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Status</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Price</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
+                  {deliverables.slice(0, 10).map((d) => (
+                    <tr key={d.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                      <td className="px-4 py-3">
+                        <span className="font-medium text-gray-900 dark:text-white">{d.title || 'Untitled'}</span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 capitalize">{d.status}</td>
+                      <td className="px-4 py-3 text-sm font-semibold text-gray-900 dark:text-white">
+                        {d.price_value != null ? `$${Number(d.price_value).toFixed(2)}` : '—'}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {d.source_url ? (
+                          <a
+                            href={d.source_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-violet-600 hover:text-violet-700 text-sm font-medium"
+                          >
+                            Open source
+                          </a>
+                        ) : null}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {sourcesModalOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          style={{ left: 'var(--sidebar-width, 17.5rem)' }}
+          onClick={() => setSourcesModalOpen(false)}
+        >
+          <div
+            className="max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-700">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white">Select source</h2>
+              <button
+                type="button"
+                onClick={() => setSourcesModalOpen(false)}
+                className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="max-h-[calc(90vh-140px)] overflow-y-auto p-6">
+              <div className="mb-4 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => onSyncSources(false)}
+                  disabled={syncing}
+                  className="rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50"
+                >
+                  {syncing ? 'Fetching…' : 'Fetch sources'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onSyncSources(true)}
+                  disabled={syncing}
+                  className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700"
+                >
+                  Force refresh
+                </button>
+              </div>
+              {syncing && sources.length === 0 ? (
+                <p className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">Fetching sources…</p>
+              ) : sources.length === 0 ? (
+                <p className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">No sources found. Try force refresh.</p>
+              ) : (
+                <SourceCardGrid sources={sources} onUseSource={useSourceAndClose} columns={3} />
+              )}
+            </div>
           </div>
         </div>
-        {sources.length === 0 ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400">No sources yet.</p>
-        ) : (
-          <SourceCardGrid
-            sources={sources}
-            onUseSource={useSource}
-            onOpenVideo={null}
-          />
-        )}
-      </section>
+      ) : null}
 
-      <section className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-        <h2 className="text-lg font-medium text-gray-900 dark:text-white">Recent deliverables</h2>
-        {deliverables.length === 0 ? <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">No deliverables yet.</p> : (
-          <div className="mt-2 space-y-2">
-            {deliverables.slice(0, 10).map((d) => (
-              <div key={d.id} className="flex items-center justify-between rounded-lg border border-gray-200 p-3 text-sm dark:border-gray-700">
-                <span className="text-gray-900 dark:text-white">{d.title}</span>
-                <div className="flex items-center gap-2">
-                  {d.source_url ? (
-                    <a
-                      href={d.source_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-violet-600 hover:text-violet-700 text-sm font-medium"
-                    >
-                      Open source
-                    </a>
-                  ) : null}
-                  <span className="text-gray-500 dark:text-gray-400">{d.status} · {(d.payment_status || 'unpaid')} · ${Number(d.price_value || 0).toFixed(2)}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+      {editClientModalOpen && client ? (
+        <EditClientModal
+          client={client}
+          onSave={() => refresh()}
+          onClose={() => setEditClientModalOpen(false)}
+        />
+      ) : null}
     </div>
   )
 }

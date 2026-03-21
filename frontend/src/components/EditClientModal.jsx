@@ -1,28 +1,42 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { createClient } from '../api'
-import { useNotifications } from '../contexts/NotificationsContext'
+import { useState, useEffect } from 'react'
+import { X } from 'lucide-react'
+import { updateClient } from '../api'
 
-const initialForm = {
-  name: '',
-  twitch: '',
-  youtube: '',
-  discord: '',
-  price_short: 20,
-  price_thumbnail: 10,
-  price_video: 50,
-  notes: '',
-}
+const inputClass =
+  'w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder-gray-500 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400'
 
-export function CreateClientPage() {
-  const navigate = useNavigate()
-  const { addNotification } = useNotifications()
-  const [form, setForm] = useState(initialForm)
+export function EditClientModal({ client, onSave, onClose }) {
+  const [form, setForm] = useState({
+    name: '',
+    notes: '',
+    twitch: '',
+    youtube: '',
+    discord: '',
+    price_short: '',
+    price_thumbnail: '',
+    price_video: '',
+  })
   const [error, setError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
 
+  useEffect(() => {
+    if (client) {
+      setForm({
+        name: client.name ?? '',
+        notes: client.notes ?? '',
+        twitch: client.socials?.twitch ?? '',
+        youtube: client.socials?.youtube ?? '',
+        discord: client.socials?.discord ?? '',
+        price_short: client.price_short != null ? String(client.price_short) : '',
+        price_thumbnail: client.price_thumbnail != null ? String(client.price_thumbnail) : '',
+        price_video: client.price_video != null ? String(client.price_video) : '',
+      })
+    }
+  }, [client])
+
   async function onSubmit(e) {
     e.preventDefault()
+    if (!client) return
     setError(null)
     setSubmitting(true)
     try {
@@ -30,16 +44,17 @@ export function CreateClientPage() {
       if (form.twitch.trim()) socials.twitch = form.twitch.trim()
       if (form.youtube.trim()) socials.youtube = form.youtube.trim()
       if (form.discord.trim()) socials.discord = form.discord.trim()
-      const client = await createClient({
+      const payload = {
         name: form.name.trim(),
         notes: form.notes.trim() || null,
         socials: Object.keys(socials).length ? socials : null,
-        price_short: Number(form.price_short),
-        price_thumbnail: Number(form.price_thumbnail),
-        price_video: Number(form.price_video),
-      })
-      addNotification({ type: 'success', title: 'Client created', message: form.name.trim() })
-      navigate(`/clients/${client.id}`)
+        price_short: form.price_short !== '' ? Number(form.price_short) : null,
+        price_thumbnail: form.price_thumbnail !== '' ? Number(form.price_thumbnail) : null,
+        price_video: form.price_video !== '' ? Number(form.price_video) : null,
+      }
+      await updateClient(client.id, payload)
+      onSave()
+      onClose()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -47,27 +62,35 @@ export function CreateClientPage() {
     }
   }
 
-  const inputClass =
-    'w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder-gray-500 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400'
+  if (!client) return null
 
   return (
-    <div className="space-y-2 ">
-
-
-      {error ? (
-        <div className="rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-700 dark:border-red-700 dark:bg-red-900/20 dark:text-red-300">
-          {error}
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      style={{ left: 'var(--sidebar-width, 17.5rem)' }}
+      onClick={onClose}
+    >
+      <div
+        className="max-h-[90vh] w-full max-w-xl overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-700">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white">Edit client</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+            aria-label="Close"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
-      ) : null}
-<div className="mx-auto max-w-xl">
-  <p className="text-sm text-left mb-4  text-gray-500 dark:text-gray-400">
-        <Link to="/clients" className="text-violet-600 hover:text-violet-700 dark:text-violet-400">
-          Back to clients
-        </Link>
-      </p>
-      <div className="mx-auto max-w-xl rounded-2xl border border-gray-200 bg-white p-6 shadow-lg dark:border-gray-700 dark:bg-gray-800">
-        <form onSubmit={onSubmit} className="space-y-6">
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white">Create a Client</h1>
+        <form onSubmit={onSubmit} className="max-h-[calc(90vh-140px)] overflow-y-auto p-6 space-y-6">
+          {error ? (
+            <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-700 dark:border-red-700 dark:bg-red-900/20 dark:text-red-300">
+              {error}
+            </div>
+          ) : null}
 
           <div className="space-y-4">
             <label className="block">
@@ -173,11 +196,10 @@ export function CreateClientPage() {
             disabled={submitting}
             className="w-full rounded-lg bg-violet-600 py-3 text-sm font-bold text-white hover:bg-violet-700 focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 disabled:opacity-50 dark:focus:ring-offset-gray-800"
           >
-            {submitting ? 'Creating…' : 'Create Client'}
+            {submitting ? 'Saving…' : 'Save'}
           </button>
         </form>
       </div>
     </div>
-  </div>
   )
 }

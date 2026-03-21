@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { X } from 'lucide-react'
 import { createDeliverable, fetchClients, syncClientSources } from '../api'
 import { SourceCardGrid } from '../components/SourceCardGrid'
 import { useNotifications } from '../contexts/NotificationsContext'
@@ -26,6 +27,7 @@ export function CreateDeliverablePage() {
   const [form, setForm] = useState(initialForm)
   const [sources, setSources] = useState([])
   const [sourcesLoading, setSourcesLoading] = useState(false)
+  const [sourcesModalOpen, setSourcesModalOpen] = useState(false)
   const [error, setError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
 
@@ -79,6 +81,16 @@ export function CreateDeliverablePage() {
     }
   }
 
+  function openSourcesModal() {
+    if (!form.client_id) {
+      setError('Select a client first')
+      return
+    }
+    setError(null)
+    setSourcesModalOpen(true)
+    if (sources.length === 0) fetchSources(false)
+  }
+
   function useSource(s) {
     setForm((f) => ({
       ...f,
@@ -88,6 +100,7 @@ export function CreateDeliverablePage() {
       source_url: s.url ?? '',
       title: s.title?.trim() || f.title,
     }))
+    setSourcesModalOpen(false)
   }
 
   async function onSubmit(e) {
@@ -126,20 +139,15 @@ export function CreateDeliverablePage() {
   }
 
   const inputClass =
-    'w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder-gray-500 focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 dark:border-gray-600 dark:bg-gray-700 dark:text-white'
+    'w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder-gray-500 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400'
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Create Deliverable</h1>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            <Link to="/deliverables" className="text-violet-600 hover:text-violet-700 dark:text-violet-400">
-              Back to deliverables
-            </Link>
-          </p>
-        </div>
-      </div>
+      <p className="text-sm text-gray-500 dark:text-gray-400">
+        <Link to="/deliverables" className="text-violet-600 hover:text-violet-700 dark:text-violet-400">
+          Back to deliverables
+        </Link>
+      </p>
 
       {error ? (
         <div className="rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-700 dark:border-red-700 dark:bg-red-900/20 dark:text-red-300">
@@ -147,9 +155,11 @@ export function CreateDeliverablePage() {
         </div>
       ) : null}
 
-      <div className="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
-        <form onSubmit={onSubmit} className="p-6 space-y-6">
-          <div className="grid gap-4 md:grid-cols-2">
+      <div className="mx-auto max-w-xl rounded-2xl border border-gray-200 bg-white p-6 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+        <form onSubmit={onSubmit} className="space-y-6">
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white">Create a Deliverable</h1>
+
+          <div className="space-y-4">
             <label className="block">
               <span className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Client</span>
               <select
@@ -179,38 +189,7 @@ export function CreateDeliverablePage() {
                 <option value="video">Video</option>
               </select>
             </label>
-          </div>
-
-          {form.client_id ? (
-            <div>
-              <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-3">Sources</h2>
-              <p className="mb-3 text-sm text-gray-500 dark:text-gray-400">
-                Fetch Twitch clips for the selected client, then pick one to prefill the form.
-              </p>
-              <div className="flex gap-2 mb-4">
-                <button
-                  type="button"
-                  onClick={() => fetchSources(false)}
-                  disabled={sourcesLoading}
-                  className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50"
-                >
-                  {sourcesLoading ? 'Fetching…' : 'Fetch sources'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => fetchSources(true)}
-                  disabled={sourcesLoading}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700"
-                >
-                  Force refresh
-                </button>
-              </div>
-              <SourceCardGrid sources={sources} onUseSource={useSource} />
-            </div>
-          ) : null}
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="block md:col-span-2">
+            <label className="block">
               <span className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Title</span>
               <input
                 required
@@ -221,7 +200,7 @@ export function CreateDeliverablePage() {
                 className={inputClass}
               />
             </label>
-            <label className="block md:col-span-2">
+            <label className="block">
               <span className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Description</span>
               <input
                 type="text"
@@ -231,7 +210,7 @@ export function CreateDeliverablePage() {
                 className={inputClass}
               />
             </label>
-            <label className="block md:col-span-2">
+            <label className="block">
               <span className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Source URL</span>
               <input
                 type="url"
@@ -241,50 +220,112 @@ export function CreateDeliverablePage() {
                 className={inputClass}
               />
             </label>
-            <label className="block">
-              <span className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Pricing</span>
-              <select
-                value={form.price_mode}
-                onChange={(e) => setForm((f) => ({ ...f, price_mode: e.target.value }))}
-                className={inputClass}
-              >
-                <option value="auto">Auto (client rate)</option>
-                <option value="override">Override (manual $)</option>
-              </select>
-            </label>
-            {form.price_mode === 'override' ? (
-              <label className="block">
-                <span className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Manual price ($)</span>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={form.price_value}
-                  onChange={(e) => setForm((f) => ({ ...f, price_value: e.target.value }))}
-                  className={inputClass}
-                  required={form.price_mode === 'override'}
-                />
-              </label>
-            ) : null}
           </div>
 
-          <div className="flex gap-3 pt-2">
+          <div className="border-t border-gray-200 pt-6 dark:border-gray-700">
+            <h2 className="mb-4 text-base font-bold text-gray-900 dark:text-white">Sources</h2>
+            <button
+              type="button"
+              onClick={openSourcesModal}
+              disabled={!form.client_id}
+              className="rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Fetch sources
+            </button>
+          </div>
+
+          <div className="border-t border-gray-200 pt-6 dark:border-gray-700">
+            <h2 className="mb-4 text-base font-bold text-gray-900 dark:text-white">Pricing</h2>
+              <div className="space-y-4">
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Price mode</span>
+                  <select
+                    value={form.price_mode}
+                    onChange={(e) => setForm((f) => ({ ...f, price_mode: e.target.value }))}
+                    className={inputClass}
+                  >
+                    <option value="auto">Auto (client rate)</option>
+                    <option value="override">Override (manual)</option>
+                  </select>
+                </label>
+                {form.price_mode === 'override' ? (
+                  <label className="block">
+                    <span className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Manual price ($)</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={form.price_value}
+                      onChange={(e) => setForm((f) => ({ ...f, price_value: e.target.value }))}
+                      className={inputClass}
+                      required={form.price_mode === 'override'}
+                    />
+                  </label>
+                ) : null}
+              </div>
+            </div>
+
             <button
               type="submit"
               disabled={submitting}
-              className="rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-violet-700 focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 disabled:opacity-50"
+              className="w-full rounded-lg bg-violet-600 py-3 text-sm font-bold text-white hover:bg-violet-700 focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 disabled:opacity-50 dark:focus:ring-offset-gray-800"
             >
-              {submitting ? 'Creating…' : 'Create deliverable'}
+              {submitting ? 'Creating…' : 'Create Deliverable'}
             </button>
-            <Link
-              to="/deliverables"
-              className="rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
-            >
-              Cancel
-            </Link>
-          </div>
-        </form>
+          </form>
       </div>
+
+      {sourcesModalOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          style={{ left: 'var(--sidebar-width, 17.5rem)' }}
+          onClick={() => setSourcesModalOpen(false)}
+        >
+          <div
+            className="max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-700">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white">Select source</h2>
+              <button
+                type="button"
+                onClick={() => setSourcesModalOpen(false)}
+                className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="max-h-[calc(90vh-140px)] overflow-y-auto p-6">
+              <div className="mb-4 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => fetchSources(false)}
+                  disabled={sourcesLoading}
+                  className="rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50"
+                >
+                  {sourcesLoading ? 'Fetching…' : 'Fetch sources'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => fetchSources(true)}
+                  disabled={sourcesLoading}
+                  className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700"
+                >
+                  Force refresh
+                </button>
+              </div>
+              {sourcesLoading && sources.length === 0 ? (
+                <p className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">Fetching sources…</p>
+              ) : sources.length === 0 ? (
+                <p className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">No sources found. Try force refresh.</p>
+              ) : (
+                <SourceCardGrid sources={sources} onUseSource={useSource} columns={3} />
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

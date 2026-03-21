@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { fetchClients } from '../api'
+import { EditClientModal } from '../components/EditClientModal'
 import { useSearch } from '../contexts/SearchContext'
 
 export function ClientsListPage() {
   const navigate = useNavigate()
   const { query } = useSearch()
   const [clients, setClients] = useState([])
+  const [editingClient, setEditingClient] = useState(null)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
 
@@ -93,6 +95,13 @@ export function ClientsListPage() {
                   </Link>
                   <button
                     type="button"
+                    onClick={() => setEditingClient(c)}
+                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => navigate(`/clients/${c.id}`)}
                     className="rounded-lg bg-violet-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-violet-700"
                   >
@@ -104,6 +113,14 @@ export function ClientsListPage() {
           </div>
         )}
       </div>
+
+      {editingClient ? (
+        <EditClientModal
+          client={editingClient}
+          onSave={() => refresh()}
+          onClose={() => setEditingClient(null)}
+        />
+      ) : null}
     </div>
   )
 }
