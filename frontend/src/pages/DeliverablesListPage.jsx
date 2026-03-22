@@ -500,6 +500,7 @@ export function DeliverablesListPage() {
                   <th className={tableHeader}>Title</th>
                   <th className={tableHeader}>Client</th>
                   <th className={tableHeader}>Type</th>
+                  <th className={tableHeader}>Date</th>
                   <th className={tableHeader}>Payment</th>
                   <th className={tableHeader}>Price</th>
                   <th className={tableHeader}>Actions</th>
@@ -508,7 +509,7 @@ export function DeliverablesListPage() {
               <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
                 {filteredDeliverables.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="px-4 py-6 text-center text-sm text-gray-500">
+                    <td colSpan="7" className="px-4 py-6 text-center text-sm text-gray-500">
                       {deliverables.length === 0 ? 'No deliverables yet.' : 'No deliverables match filters.'}
                     </td>
                   </tr>
@@ -544,6 +545,11 @@ export function DeliverablesListPage() {
                           <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium capitalize opacity-90 ${typeClass}`}>
                             {d.type || '—'}
                           </span>
+                        </td>
+                        <td className="px-4 py-3.5 text-sm text-gray-500 dark:text-gray-400">
+                          {d.completed_at || d.created_at
+                            ? new Date(d.completed_at || d.created_at).toLocaleDateString()
+                            : '—'}
                         </td>
                         <td className="px-4 py-3.5">
                           <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${paymentClass}`}>
@@ -604,6 +610,7 @@ export function DeliverablesListPage() {
                   <th className={tableHeader}>Title</th>
                   <th className={tableHeader}>Client</th>
                   <th className={tableHeader}>Type</th>
+                  <th className={tableHeader}>Date</th>
                   <th className={tableHeader}>Payment</th>
                   <th className={tableHeader}>Price</th>
                   <th className={tableHeader}>Actions</th>
@@ -631,6 +638,11 @@ export function DeliverablesListPage() {
                       <td className="px-4 py-3.5 text-sm text-gray-500 dark:text-gray-400">{c ? c.name : `#${d.client_id}`}</td>
                       <td className="px-4 py-3.5">
                         <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${typeClass}`}>{d.type || '—'}</span>
+                      </td>
+                      <td className="px-4 py-3.5 text-sm text-gray-500 dark:text-gray-400">
+                        {d.completed_at || d.created_at
+                          ? new Date(d.completed_at || d.created_at).toLocaleDateString()
+                          : '—'}
                       </td>
                       <td className="px-4 py-3.5">
                         <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium capitalize ${paymentClass}`}>

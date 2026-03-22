@@ -428,6 +428,7 @@ export function BillingPage() {
                         <tr>
                           <th className={tableHeader}>Title</th>
                           <th className={tableHeader}>Type</th>
+                          <th className={tableHeader}>Date</th>
                           <th className={tableHeader}>Amount</th>
                           <th className={tableHeader}>Payment</th>
                           <th className={tableHeader}></th>
@@ -447,6 +448,11 @@ export function BillingPage() {
                               </td>
                               <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 capitalize">
                                 {d?.type ?? '—'}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                                {d?.completed_at || d?.created_at
+                                  ? new Date(d.completed_at || d.created_at).toLocaleDateString()
+                                  : '—'}
                               </td>
                               <td className="px-4 py-3 text-sm font-semibold text-gray-900 dark:text-white">
                                 ${Number(item.amount).toFixed(2)}

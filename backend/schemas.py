@@ -119,6 +119,7 @@ class DeliverableRead(DeliverableBase):
     id: int
     created_at: datetime
     updated_at: datetime
+    completed_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -158,6 +159,8 @@ class DeliverableSummary(BaseModel):
     type: str
     payment_status: str
     source_url: Optional[str] = None
+    completed_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
