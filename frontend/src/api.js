@@ -116,6 +116,15 @@ export async function fetchBillingTotals(params = {}) {
   return request(`/billing/totals${suffix}`)
 }
 
+export async function fetchBillingDeliverables(params) {
+  const qs = new URLSearchParams({
+    client_id: String(params.client_id),
+    period_start: params.period_start,
+    period_end: params.period_end,
+  })
+  return request(`/billing/deliverables?${qs}`)
+}
+
 export async function fetchInvoices(params = {}) {
   const qs = new URLSearchParams()
   if (params.client_id) qs.set('client_id', String(params.client_id))

@@ -751,6 +751,34 @@ def update_deliverable(
 # --- Billing / Invoices ---
 
 
+@app.get("/billing/deliverables", response_model=List[DeliverableRead])
+def list_billing_deliverables(
+    client_id: int = Query(..., description="Client ID"),
+    period_start: date = Query(..., description="Start of date range"),
+    period_end: date = Query(..., description="End of date range"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> List[Deliverable]:
+    """Deliverables in date range for a client (for export/report). Includes already-invoiced."""
+    client = _owned_client_or_404(db, client_id, current_user.id)
+    if client.archived:
+        raise HTTPException(status_code=400, detail="Client is archived")
+    if period_start > period_end:
+        raise HTTPException(status_code=400, detail="period_start must be <= period_end")
+    dts = _deliverable_period_expr()
+    stmt = (
+        select(Deliverable)
+        .where(Deliverable.client_id == client_id)
+        .where(Deliverable.owner_user_id == current_user.id)
+        .where(Deliverable.archived.is_(False))
+        .where(Deliverable.price_value.is_not(None))
+        .where(func.date(dts) >= period_start)
+        .where(func.date(dts) <= period_end)
+        .order_by(dts.asc(), Deliverable.id.asc())
+    )
+    return db.scalars(stmt).all()
+
+
 def _deliverable_period_expr():
     # Use completed_at when available; otherwise created_at
     return func.coalesce(Deliverable.completed_at, Deliverable.created_at)

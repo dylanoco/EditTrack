@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { X } from 'lucide-react'
 import {
   createInvoice,
+  fetchBillingDeliverables,
   fetchBillingTotals,
   fetchClients,
   fetchInvoice,
@@ -39,6 +40,13 @@ export function BillingPage() {
   const [selectedInvoice, setSelectedInvoice] = useState(null)
   const [detailInvoice, setDetailInvoice] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+  const [exportInvoiceModalOpen, setExportInvoiceModalOpen] = useState(false)
+  const [exportInvoiceForm, setExportInvoiceForm] = useState({
+    client_id: clientIdFromUrl || '',
+    period_start: firstOfMonthStr,
+    period_end: today,
+  })
+  const [exporting, setExporting] = useState(false)
 
   const clientById = useMemo(() => {
     const m = new Map()
@@ -151,6 +159,68 @@ export function BillingPage() {
     URL.revokeObjectURL(url)
   }
 
+  async function exportInvoiceAsCsv(e) {
+    e.preventDefault()
+    setError(null)
+    setExporting(true)
+    try {
+      const { client_id, period_start, period_end } = exportInvoiceForm
+      if (!client_id || !period_start || !period_end) {
+        throw new Error('Client and date range are required')
+      }
+      const deliverables = await fetchBillingDeliverables({
+        client_id: Number(client_id),
+        period_start,
+        period_end,
+      })
+      const c = clientById.get(String(client_id))
+      const clientName = c ? c.name : `Client #${client_id}`
+      const paidTotal = deliverables
+        .filter((d) => d.payment_status === 'paid')
+        .reduce((s, d) => s + Number(d.price_value || 0), 0)
+      const unpaidTotal = deliverables
+        .filter((d) => d.payment_status !== 'paid')
+        .reduce((s, d) => s + Number(d.price_value || 0), 0)
+      const total = paidTotal + unpaidTotal
+      const headers = ['Title', 'Type', 'Date', 'Payment Status', 'Amount']
+      const rows = deliverables.map((d) => [
+        d.title || 'Untitled',
+        d.type || '',
+        d.completed_at || d.created_at
+          ? new Date(d.completed_at || d.created_at).toLocaleDateString()
+          : '',
+        d.payment_status || 'unpaid',
+        String(Number(d.price_value || 0).toFixed(2)),
+      ])
+      const escapeCsv = (v) => `"${String(v).replace(/"/g, '""')}"`
+      const csv = [
+        `Invoice Report: ${clientName}`,
+        `Period: ${period_start} to ${period_end}`,
+        '',
+        headers.map(escapeCsv).join(','),
+        ...rows.map((r) => r.map(escapeCsv).join(',')),
+        '',
+        'Summary',
+        `Paid Total,${paidTotal.toFixed(2)}`,
+        `Unpaid Total,${unpaidTotal.toFixed(2)}`,
+        `Total,${total.toFixed(2)}`,
+      ].join('\n')
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `invoice-${clientName.replace(/\s+/g, '-')}-${period_start}-to-${period_end}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+      addNotification({ type: 'success', title: 'Invoice exported', message: `${deliverables.length} deliverables` })
+      setExportInvoiceModalOpen(false)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setExporting(false)
+    }
+  }
+
   const inputClass =
     'w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder-gray-500 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400'
   const tableHeader =
@@ -164,6 +234,20 @@ export function BillingPage() {
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">View totals and create invoices.</p>
         </div>
         <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setExportInvoiceForm({
+                client_id: billingFilters.client_id || (clients[0] ? String(clients[0].id) : ''),
+                period_start: billingFilters.period_start,
+                period_end: billingFilters.period_end,
+              })
+              setExportInvoiceModalOpen(true)
+            }}
+            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700"
+          >
+            Export this Invoice
+          </button>
           <button
             type="button"
             onClick={exportCsv}
@@ -367,6 +451,77 @@ export function BillingPage() {
                 className="w-full rounded-lg bg-violet-600 py-3 text-sm font-bold text-white hover:bg-violet-700 disabled:opacity-50"
               >
                 {submitting ? 'Creating…' : 'Create invoice'}
+              </button>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {exportInvoiceModalOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          style={{ left: 'var(--sidebar-width, 17.5rem)' }}
+          onClick={() => setExportInvoiceModalOpen(false)}
+        >
+          <div
+            className="max-h-[90vh] w-full max-w-md overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-700">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white">Export this Invoice</h2>
+              <button
+                type="button"
+                onClick={() => setExportInvoiceModalOpen(false)}
+                className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <form onSubmit={exportInvoiceAsCsv} className="p-6 space-y-4">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Select client and date range. The CSV will list paid/unpaid deliverables and totals.
+              </p>
+              <label className="block">
+                <span className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Client</span>
+                <select
+                  required
+                  value={exportInvoiceForm.client_id}
+                  onChange={(e) => setExportInvoiceForm((f) => ({ ...f, client_id: e.target.value }))}
+                  className={inputClass}
+                >
+                  <option value="">Select client…</option>
+                  {clients.map((c) => (
+                    <option key={c.id} value={String(c.id)}>{c.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Period start</span>
+                <input
+                  required
+                  type="date"
+                  value={exportInvoiceForm.period_start}
+                  onChange={(e) => setExportInvoiceForm((f) => ({ ...f, period_start: e.target.value }))}
+                  className={inputClass}
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Period end</span>
+                <input
+                  required
+                  type="date"
+                  value={exportInvoiceForm.period_end}
+                  onChange={(e) => setExportInvoiceForm((f) => ({ ...f, period_end: e.target.value }))}
+                  className={inputClass}
+                />
+              </label>
+              <button
+                type="submit"
+                disabled={exporting}
+                className="w-full rounded-lg bg-violet-600 py-3 text-sm font-bold text-white hover:bg-violet-700 disabled:opacity-50"
+              >
+                {exporting ? 'Exporting…' : 'Export CSV'}
               </button>
             </form>
           </div>
