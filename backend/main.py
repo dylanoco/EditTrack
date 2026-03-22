@@ -17,7 +17,7 @@ import httpx
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy import and_, case, event, exists, func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from database import engine, get_db
 from models import Base, Client, Deliverable, Invoice, InvoiceItem, OAuthAccount, Source, User
@@ -31,6 +31,7 @@ from schemas import (
     DeliverableRead,
     DeliverableUpdate,
     InvoiceCreate,
+    InvoiceDetailRead,
     InvoiceRead,
     LoginRequest,
     ProfileUpdateRequest,
@@ -1023,6 +1024,9 @@ def create_invoice(
 
     total_amount = float(sum(float(d.price_value) for d in deliverables if d.price_value is not None))
 
+    paid_count = sum(1 for d in deliverables if d.payment_status == "paid")
+    inv_status = "paid" if paid_count == len(deliverables) else ("partial" if paid_count > 0 else "unpaid")
+
     invoice = Invoice(
         client_id=payload.client_id,
         owner_user_id=current_user.id,
@@ -1030,7 +1034,7 @@ def create_invoice(
         period_end=payload.period_end,
         label=label,
         total_amount=total_amount,
-        status="unpaid",
+        status=inv_status,
     )
     db.add(invoice)
     db.flush()
@@ -1049,6 +1053,28 @@ def create_invoice(
     return invoice
 
 
+@app.get("/invoices/{invoice_id}", response_model=InvoiceDetailRead)
+def get_invoice(
+    invoice_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Invoice:
+    stmt = (
+        select(Invoice)
+        .options(
+            selectinload(Invoice.items).selectinload(InvoiceItem.deliverable),
+        )
+        .join(Client, Invoice.client_id == Client.id)
+        .where(Invoice.id == invoice_id)
+        .where(Invoice.owner_user_id == current_user.id)
+        .where(Client.owner_user_id == current_user.id)
+    )
+    invoice = db.scalar(stmt)
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    return invoice
+
+
 @app.get("/invoices", response_model=List[InvoiceRead])
 def list_invoices(
     client_id: Optional[int] = Query(default=None),
@@ -1056,7 +1082,12 @@ def list_invoices(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> List[Invoice]:
-    stmt = select(Invoice).join(Client, Invoice.client_id == Client.id).order_by(Invoice.created_at.desc())
+    stmt = (
+        select(Invoice)
+        .options(selectinload(Invoice.items))
+        .join(Client, Invoice.client_id == Client.id)
+        .order_by(Invoice.created_at.desc())
+    )
     stmt = stmt.where(Invoice.owner_user_id == current_user.id, Client.owner_user_id == current_user.id)
     if not include_archived_clients:
         stmt = stmt.where(Client.archived.is_(False))

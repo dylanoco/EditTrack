@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { Layout } from './components/layout/Layout'
 import { ProtectedRoute } from './components/ProtectedRoute'
+import { BillingPage } from './pages/BillingPage'
 import { LegacyContent } from './LegacyContent'
 import { ClientPage } from './pages/ClientPage'
 import { ClientsListPage } from './pages/ClientsListPage'
@@ -35,7 +36,7 @@ function App() {
         <Route path="deliverables" element={<DeliverablesListPage />} />
         <Route path="deliverables/create" element={<CreateDeliverablePage />} />
         <Route path="sources" element={<LegacyContent activeTab="sources" />} />
-        <Route path="billing" element={<LegacyContent activeTab="billing" />} />
+        <Route path="billing" element={<BillingPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

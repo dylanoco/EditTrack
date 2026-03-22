@@ -151,6 +151,28 @@ class InvoiceItemRead(BaseModel):
         from_attributes = True
 
 
+class DeliverableSummary(BaseModel):
+    """Minimal deliverable fields for invoice item display."""
+    id: int
+    title: str
+    type: str
+    payment_status: str
+    source_url: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class InvoiceItemWithDeliverableRead(BaseModel):
+    id: int
+    deliverable_id: int
+    amount: float
+    deliverable: DeliverableSummary
+
+    class Config:
+        from_attributes = True
+
+
 class InvoiceRead(BaseModel):
     id: int
     client_id: int
@@ -161,6 +183,22 @@ class InvoiceRead(BaseModel):
     status: str
     created_at: datetime
     items: List[InvoiceItemRead] = []
+
+    class Config:
+        from_attributes = True
+
+
+class InvoiceDetailRead(BaseModel):
+    """Invoice with items including deliverable details."""
+    id: int
+    client_id: int
+    period_start: date
+    period_end: date
+    label: str
+    total_amount: float
+    status: str
+    created_at: datetime
+    items: List[InvoiceItemWithDeliverableRead] = []
 
     class Config:
         from_attributes = True

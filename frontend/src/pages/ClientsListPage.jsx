@@ -100,6 +100,12 @@ export function ClientsListPage() {
                   >
                     Edit
                   </button>
+                  <Link
+                    to={`/billing?client_id=${c.id}`}
+                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700"
+                  >
+                    Create invoice
+                  </Link>
                   <button
                     type="button"
                     onClick={() => navigate(`/clients/${c.id}`)}

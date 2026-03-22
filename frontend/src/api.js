@@ -123,6 +123,10 @@ export async function fetchInvoices(params = {}) {
   return request(`/invoices${suffix}`)
 }
 
+export async function fetchInvoice(id) {
+  return request(`/invoices/${id}`)
+}
+
 export async function createInvoice(payload) {
   return request('/invoices', { method: 'POST', body: payload })
 }
