@@ -484,26 +484,25 @@ def sync_client_sources(
     if source_type not in {"clips", "vods"}:
         raise HTTPException(status_code=400, detail="source_type must be clips or vods")
 
+    db_platform = "twitch" if source_type == "clips" else "twitch_vod"
+
     now = datetime.now(timezone.utc)
     cache_cutoff = now - timedelta(minutes=SOURCES_CACHE_MINUTES)
 
     if not force:
-        source_prefix = "clip:" if source_type == "clips" else "vod:"
         stmt = (
             select(Source)
             .where(
                 Source.client_id == client_id,
-                Source.platform == "twitch",
+                Source.platform == db_platform,
                 Source.owner_user_id == current_user.id,
-                Source.external_id.startswith(source_prefix),
             )
-            .order_by(Source.fetched_at.desc().nullslast(), Source.created_at.desc())
+            .order_by(Source.created_at.desc())
         )
         existing = db.scalars(stmt).all()
         if existing and existing[0].fetched_at and existing[0].fetched_at >= cache_cutoff:
             return existing
 
-    # Resolve broadcaster_id: use cached from socials or call Twitch
     socials = client.socials or {}
     broadcaster_id = socials.get("twitch_broadcaster_id")
     if not broadcaster_id:
@@ -533,24 +532,36 @@ def sync_client_sources(
             detail=f"Twitch API error: {getattr(e, 'message', str(e))}",
         )
 
-    # Upsert sources by (client_id, platform, external_id)
     existing_by_ext = {
         s.external_id: s
-        for s in db.scalars(select(Source).where(Source.client_id == client_id, Source.platform == "twitch")).all()
+        for s in db.scalars(
+            select(Source).where(Source.client_id == client_id, Source.platform == db_platform)
+        ).all()
         if s.owner_user_id == current_user.id
         if s.external_id
     }
 
     for item in items:
-        raw_id = item.get("id")
-        ext_id = f"{'clip' if source_type == 'clips' else 'vod'}:{raw_id}" if raw_id else None
+        ext_id = item.get("id")
         if not ext_id:
             continue
         title = item.get("title") or ("Untitled clip" if source_type == "clips" else "Untitled VOD")
         url = item.get("url")
-        thumbnail_url = item.get("thumbnail_url")
-        duration = item.get("duration") if source_type == "clips" else item.get("duration_sec")
-        duration_sec = int(duration) if duration is not None else None
+        thumbnail_url = item.get("thumbnail_url") or ""
+        if source_type == "vods" and thumbnail_url:
+            thumbnail_url = thumbnail_url.replace("%{width}", "320").replace("%{height}", "180")
+        duration_sec = (
+            int(item["duration"]) if source_type == "clips" and item.get("duration") is not None
+            else item.get("duration_sec")
+        )
+
+        source_date = None
+        raw_date = item.get("created_at")
+        if raw_date:
+            try:
+                source_date = datetime.fromisoformat(raw_date.replace("Z", "+00:00"))
+            except (ValueError, TypeError):
+                pass
 
         if ext_id in existing_by_ext:
             src = existing_by_ext[ext_id]
@@ -559,16 +570,19 @@ def sync_client_sources(
             src.thumbnail_url = thumbnail_url
             src.duration_sec = duration_sec
             src.fetched_at = now
+            if source_date:
+                src.created_at = source_date
         else:
             src = Source(
                 client_id=client_id,
-                platform="twitch",
+                platform=db_platform,
                 external_id=ext_id,
                 title=title,
                 url=url,
                 thumbnail_url=thumbnail_url,
                 duration_sec=duration_sec,
                 fetched_at=now,
+                created_at=source_date or now,
                 owner_user_id=current_user.id,
             )
             db.add(src)
@@ -580,11 +594,10 @@ def sync_client_sources(
         select(Source)
         .where(
             Source.client_id == client_id,
-            Source.platform == "twitch",
+            Source.platform == db_platform,
             Source.owner_user_id == current_user.id,
-            Source.external_id.startswith("clip:" if source_type == "clips" else "vod:"),
         )
-        .order_by(Source.fetched_at.desc().nullslast(), Source.created_at.desc())
+        .order_by(Source.created_at.desc())
     )
     return db.scalars(stmt).all()
 

@@ -66,11 +66,18 @@ export function CreateDeliverablePage() {
     setSourcesModalOpen(false)
   }
 
+  useEffect(() => {
+    if (sourcesModalOpen && form.client_id) {
+      setSources([])
+      fetchSources(false)
+    }
+  }, [sourceType])
+
   const sortedSources = useMemo(() => {
     const copy = [...sources]
     copy.sort((a, b) => {
-      const aTime = new Date(a.fetched_at || a.created_at || 0).getTime()
-      const bTime = new Date(b.fetched_at || b.created_at || 0).getTime()
+      const aTime = new Date(a.created_at || 0).getTime()
+      const bTime = new Date(b.created_at || 0).getTime()
       return sourceSort === 'oldest' ? aTime - bTime : bTime - aTime
     })
     return copy

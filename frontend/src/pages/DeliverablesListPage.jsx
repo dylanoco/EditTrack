@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ExternalLink, FileText, Plus, X } from 'lucide-react'
 import { fetchClients, fetchDeliverables, syncClientSources, updateDeliverable } from '../api'
@@ -94,11 +94,18 @@ export function DeliverablesListPage() {
     return true
   }), [deliverables, filterPayment, filterClient, filterType])
 
+  useEffect(() => {
+    if (sourcesModalOpen && editForm.client_id) {
+      setSources([])
+      fetchSourcesForEdit(false)
+    }
+  }, [sourceType])
+
   const sortedSources = useMemo(() => {
     const copy = [...sources]
     copy.sort((a, b) => {
-      const aTime = new Date(a.fetched_at || a.created_at || 0).getTime()
-      const bTime = new Date(b.fetched_at || b.created_at || 0).getTime()
+      const aTime = new Date(a.created_at || 0).getTime()
+      const bTime = new Date(b.created_at || 0).getTime()
       return sourceSort === 'oldest' ? aTime - bTime : bTime - aTime
     })
     return copy

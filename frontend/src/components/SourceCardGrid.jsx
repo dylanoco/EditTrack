@@ -9,6 +9,16 @@ const gridCols = {
   4: 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4',
 }
 
+function formatDuration(sec) {
+  if (sec == null) return '—'
+  if (sec < 60) return `${sec}s`
+  const h = Math.floor(sec / 3600)
+  const m = Math.floor((sec % 3600) / 60)
+  const s = sec % 60
+  if (h > 0) return `${h}h ${m}m`
+  return s > 0 ? `${m}m ${s}s` : `${m}m`
+}
+
 export function SourceCardGrid({ sources, onUseSource, onOpenVideo, columns = 4, compact = false }) {
   const [page, setPage] = useState(0)
   const pageSize = columns === 3 ? 6 : PAGE_SIZE
@@ -40,16 +50,16 @@ export function SourceCardGrid({ sources, onUseSource, onOpenVideo, columns = 4,
                 </div>
               )}
             </div>
-            <div className={compact ? 'p-3' : 'space-y-3 p-4'}>
+            <div className={compact ? 'p-3' : 'space-y-2 p-4'}>
               <p className="truncate text-sm font-medium text-slate-900 dark:text-white" title={s.title}>
                 {s.title || 'Untitled'}
               </p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                {s.duration_sec != null ? `${s.duration_sec}s` : '—'}
-              </p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                {s.fetched_at || s.created_at ? `Date: ${new Date(s.fetched_at || s.created_at).toLocaleDateString()}` : ''}
-              </p>
+              <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
+                <span>{formatDuration(s.duration_sec)}</span>
+                {s.created_at && (
+                  <span>{new Date(s.created_at).toLocaleDateString()}</span>
+                )}
+              </div>
               <div className={compact ? 'mt-2 flex gap-2' : 'flex flex-wrap gap-2'}>
                 {onUseSource && (
                   <button
