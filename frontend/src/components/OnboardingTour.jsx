@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Joyride, STATUS, ACTIONS } from 'react-joyride'
 import { useLocation } from 'react-router-dom'
 
@@ -125,25 +125,46 @@ const tooltipStyles = {
 
 export function OnboardingTour() {
   const [run, setRun] = useState(false)
+  const [completed, setCompleted] = useState(false)
   const location = useLocation()
 
+  const markCompleted = useCallback(() => {
+    setRun(false)
+    setCompleted(true)
+    try {
+      localStorage.setItem(STORAGE_KEY, 'true')
+    } catch {
+      // Ignore storage failures (private mode, disabled storage, etc.)
+    }
+  }, [])
+
   useEffect(() => {
-    const completed = localStorage.getItem(STORAGE_KEY)
+    try {
+      setCompleted(localStorage.getItem(STORAGE_KEY) === 'true')
+    } catch {
+      setCompleted(false)
+    }
+  }, [])
+
+  useEffect(() => {
     if (!completed && location.pathname === '/dashboard') {
       const timer = setTimeout(() => setRun(true), 800)
       return () => clearTimeout(timer)
+    } else {
+      setRun(false)
     }
-  }, [location.pathname])
+  }, [location.pathname, completed])
 
   function handleJoyrideCallback(data) {
-    const { status, action } = data
+    const { status, action, type } = data
     if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status)) {
-      setRun(false)
-      localStorage.setItem(STORAGE_KEY, 'true')
+      markCompleted()
     }
     if (action === ACTIONS.CLOSE) {
-      setRun(false)
-      localStorage.setItem(STORAGE_KEY, 'true')
+      markCompleted()
+    }
+    if (type === 'tour:end') {
+      markCompleted()
     }
   }
 
