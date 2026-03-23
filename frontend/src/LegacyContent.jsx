@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { fetchClients, syncClientSources } from './api.js'
 import { SourceCardGrid } from './components/SourceCardGrid'
@@ -13,6 +13,8 @@ export function LegacyContent({ activeTab }) {
   const [clientSourcesLoading, setClientSourcesLoading] = useState(false)
   const [sourcesClientId, setSourcesClientId] = useState('')
   const [sourcesPlatform, setSourcesPlatform] = useState('twitch')
+  const [sourceType, setSourceType] = useState('clips')
+  const [sourceSort, setSourceSort] = useState('newest')
 
   async function refreshClients() {
     setError(null)
@@ -26,19 +28,37 @@ export function LegacyContent({ activeTab }) {
   useEffect(() => { refreshClients() }, [])
   useEffect(() => { if (activeTab === 'sources' && clients.length && !sourcesClientId) setSourcesClientId(String(clients[0].id)) }, [activeTab, clients, sourcesClientId])
 
-  async function fetchSourcesForClient(clientId, platform, force = false) {
-    if (!clientId || platform !== 'twitch') { setError(platform !== 'twitch' ? 'YouTube not available yet.' : 'Select a client first.'); return }
+  async function fetchSourcesForClient(force = false) {
+    if (!sourcesClientId || sourcesPlatform !== 'twitch') { setError(sourcesPlatform !== 'twitch' ? 'YouTube not available yet.' : 'Select a client first.'); return }
     setError(null); setClientSourcesLoading(true)
     try {
-      const list = await syncClientSources(Number(clientId), 'twitch', force)
-      addNotification({ type: 'success', title: 'Sources synced', message: `Fetched ${list.length} Twitch clip(s)` })
+      const list = await syncClientSources(Number(sourcesClientId), 'twitch', force, sourceType)
+      const label = sourceType === 'vods' ? 'VOD(s)' : 'clip(s)'
+      addNotification({ type: 'success', title: 'Sources synced', message: `Fetched ${list.length} Twitch ${label}` })
       setClientSources(list)
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); setClientSources([]) } finally { setClientSourcesLoading(false) }
   }
 
+  useEffect(() => {
+    if (sourcesClientId && sourcesPlatform === 'twitch') {
+      setClientSources([])
+      fetchSourcesForClient(false)
+    }
+  }, [sourceType])
+
   function createDeliverableFromSource(source, clientId) {
     navigate('/deliverables/create', { state: { source, clientId: Number(clientId) } })
   }
+
+  const sortedSources = useMemo(() => {
+    const copy = [...clientSources]
+    copy.sort((a, b) => {
+      const aTime = new Date(a.created_at || 0).getTime()
+      const bTime = new Date(b.created_at || 0).getTime()
+      return sourceSort === 'oldest' ? aTime - bTime : bTime - aTime
+    })
+    return copy
+  }, [clientSources, sourceSort])
 
   const inputClass = 'w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:placeholder-slate-500'
 
@@ -54,13 +74,13 @@ export function LegacyContent({ activeTab }) {
         <>
           <div>
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Sources</h1>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Fetch Twitch clips for clients and create deliverables from them.</p>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Fetch Twitch clips or VODs for clients and create deliverables from them.</p>
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">Source fetching</h2>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
-              Fetch clips for a client (Twitch is live; YouTube is coming soon). Results are cached for 10 minutes unless you force refresh.
+              Fetch clips or VODs for a client (Twitch is live; YouTube is coming soon). Results are cached for 10 minutes unless you force refresh.
             </p>
 
             <div className="grid grid-cols-2 gap-4 mb-4">
@@ -92,10 +112,18 @@ export function LegacyContent({ activeTab }) {
               <p className="text-sm text-slate-400 mb-4">YouTube integration will be available in a future update.</p>
             )}
 
-            <div className="flex gap-2 mb-6">
+            <div className="flex flex-wrap items-center gap-2 mb-6">
+              <select value={sourceType} onChange={(e) => setSourceType(e.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
+                <option value="clips">Clips</option>
+                <option value="vods">VODs</option>
+              </select>
+              <select value={sourceSort} onChange={(e) => setSourceSort(e.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
+                <option value="newest">Sort: Newest first</option>
+                <option value="oldest">Sort: Oldest first</option>
+              </select>
               <button
                 type="button"
-                onClick={() => fetchSourcesForClient(sourcesClientId, sourcesPlatform, false)}
+                onClick={() => fetchSourcesForClient(false)}
                 disabled={clientSourcesLoading || !sourcesClientId || sourcesPlatform !== 'twitch'}
                 className="rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -103,7 +131,7 @@ export function LegacyContent({ activeTab }) {
               </button>
               <button
                 type="button"
-                onClick={() => fetchSourcesForClient(sourcesClientId, sourcesPlatform, true)}
+                onClick={() => fetchSourcesForClient(true)}
                 disabled={clientSourcesLoading || !sourcesClientId || sourcesPlatform !== 'twitch'}
                 className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
               >
@@ -111,9 +139,9 @@ export function LegacyContent({ activeTab }) {
               </button>
             </div>
 
-            {clientSources.length > 0 && (
+            {sortedSources.length > 0 && (
               <SourceCardGrid
-                sources={clientSources}
+                sources={sortedSources}
                 onUseSource={(s) => createDeliverableFromSource(s, sourcesClientId)}
               />
             )}

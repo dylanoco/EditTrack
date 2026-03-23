@@ -466,6 +466,61 @@ def list_sources_for_client(
 SOURCES_CACHE_MINUTES = 10
 
 
+def _migrate_legacy_source_prefixes(db: Session, client_id: int, user_id: int):
+    """
+    Clean up sources created by the old implementation that stored
+    external_id as 'clip:<id>' or 'vod:<id>' with platform='twitch'.
+    Moves vod-prefixed entries to platform='twitch_vod' and strips
+    all prefixes so external_id matches the raw Twitch ID.
+    """
+    legacy = db.scalars(
+        select(Source).where(
+            Source.client_id == client_id,
+            Source.owner_user_id == user_id,
+            Source.platform == "twitch",
+            Source.external_id.isnot(None),
+        )
+    ).all()
+
+    clean_index: dict[tuple[str, str], Source] = {}
+    dirty: list[Source] = []
+
+    for s in legacy:
+        eid = s.external_id or ""
+        if eid.startswith("vod:") or eid.startswith("clip:"):
+            dirty.append(s)
+        else:
+            clean_index[(s.platform, eid)] = s
+
+    if not dirty:
+        return
+
+    for s in dirty:
+        eid = s.external_id or ""
+        if eid.startswith("vod:"):
+            raw_id = eid[4:]
+            new_platform = "twitch_vod"
+        else:
+            raw_id = eid[5:]
+            new_platform = "twitch"
+
+        existing_clean = clean_index.get((new_platform, raw_id))
+        if existing_clean:
+            db.delete(s)
+        else:
+            s.external_id = raw_id
+            s.platform = new_platform
+            if new_platform == "twitch_vod" and s.thumbnail_url:
+                s.thumbnail_url = (
+                    s.thumbnail_url
+                    .replace("%{width}", "320")
+                    .replace("%{height}", "180")
+                )
+            clean_index[(new_platform, raw_id)] = s
+
+    db.flush()
+
+
 @app.post("/clients/{client_id}/sources/sync", response_model=List[SourceRead])
 def sync_client_sources(
     client_id: int,
@@ -485,6 +540,9 @@ def sync_client_sources(
         raise HTTPException(status_code=400, detail="source_type must be clips or vods")
 
     db_platform = "twitch" if source_type == "clips" else "twitch_vod"
+
+    # One-time cleanup: migrate old prefixed external_ids from the previous implementation.
+    _migrate_legacy_source_prefixes(db, client_id, current_user.id)
 
     now = datetime.now(timezone.utc)
     cache_cutoff = now - timedelta(minutes=SOURCES_CACHE_MINUTES)
