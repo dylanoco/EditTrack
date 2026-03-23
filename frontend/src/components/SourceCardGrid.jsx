@@ -21,7 +21,6 @@ export function SourceCardGrid({ sources, onUseSource, onOpenVideo, columns = 4,
   if (sources.length === 0) return null
 
   const gridClass = gridCols[columns] ?? gridCols[4]
-
   const gridGap = columns === 3 ? 'gap-5' : 'gap-4'
 
   return (
@@ -30,26 +29,22 @@ export function SourceCardGrid({ sources, onUseSource, onOpenVideo, columns = 4,
         {paginated.map((s) => (
           <div
             key={s.id}
-            className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"
+            className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
           >
-            <div className="aspect-video min-h-[100px] bg-gray-100 dark:bg-gray-700">
+            <div className="aspect-video min-h-[100px] bg-slate-100 dark:bg-slate-800">
               {s.thumbnail_url ? (
-                <img
-                  src={s.thumbnail_url}
-                  alt=""
-                  className="h-full w-full object-cover"
-                />
+                <img src={s.thumbnail_url} alt="" className="h-full w-full object-cover" />
               ) : (
-                <div className="flex h-full items-center justify-center text-gray-400">
+                <div className="flex h-full items-center justify-center text-slate-400">
                   <span className="text-sm">No thumbnail</span>
                 </div>
               )}
             </div>
             <div className={compact ? 'p-3' : 'space-y-3 p-4'}>
-              <p className="truncate text-sm font-medium text-gray-900 dark:text-white" title={s.title}>
+              <p className="truncate text-sm font-medium text-slate-900 dark:text-white" title={s.title}>
                 {s.title || 'Untitled'}
               </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 {s.duration_sec != null ? `${s.duration_sec}s` : '—'}
               </p>
               <div className={compact ? 'mt-2 flex gap-2' : 'flex flex-wrap gap-2'}>
@@ -57,7 +52,7 @@ export function SourceCardGrid({ sources, onUseSource, onOpenVideo, columns = 4,
                   <button
                     type="button"
                     onClick={() => onUseSource(s)}
-                    className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-violet-600 font-medium text-white hover:bg-violet-700 ${compact ? 'px-2 py-1.5 text-xs' : 'px-3 py-2.5 text-sm'}`}
+                    className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-violet-600 font-medium text-white shadow-sm hover:bg-violet-700 ${compact ? 'px-2 py-1.5 text-xs' : 'px-3 py-2.5 text-sm'}`}
                   >
                     <FilePlus className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
                     Use Source
@@ -68,7 +63,7 @@ export function SourceCardGrid({ sources, onUseSource, onOpenVideo, columns = 4,
                     href={s.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={`flex items-center justify-center gap-1.5 rounded-lg border border-gray-300 font-medium hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700 ${compact ? 'px-2 py-1.5 text-xs' : 'px-3 py-2.5 text-sm'}`}
+                    className={`flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 ${compact ? 'px-2 py-1.5 text-xs' : 'px-3 py-2.5 text-sm'}`}
                     onClick={onOpenVideo}
                   >
                     <ExternalLink className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
@@ -86,18 +81,18 @@ export function SourceCardGrid({ sources, onUseSource, onOpenVideo, columns = 4,
             type="button"
             onClick={() => setPage((p) => Math.max(0, p - 1))}
             disabled={page === 0}
-            className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm disabled:opacity-50 dark:border-gray-600"
+            className="rounded-xl border border-slate-200 px-3 py-1.5 text-sm text-slate-600 disabled:opacity-50 dark:border-slate-700 dark:text-slate-400"
           >
             Previous
           </button>
-          <span className="text-sm text-gray-500 dark:text-gray-400">
+          <span className="text-sm text-slate-500 dark:text-slate-400">
             Page {page + 1} of {totalPages}
           </span>
           <button
             type="button"
             onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
             disabled={page >= totalPages - 1}
-            className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm disabled:opacity-50 dark:border-gray-600"
+            className="rounded-xl border border-slate-200 px-3 py-1.5 text-sm text-slate-600 disabled:opacity-50 dark:border-slate-700 dark:text-slate-400"
           >
             Next
           </button>

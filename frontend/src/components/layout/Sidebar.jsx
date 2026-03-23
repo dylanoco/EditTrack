@@ -1,39 +1,51 @@
 import { clsx } from 'clsx'
 import { useEffect, useState } from 'react'
-import { ChevronDown, ChevronRight, LayoutDashboard, Users, FileText, Link2, Receipt } from 'lucide-react'
-import { NavLink, useLocation } from 'react-router-dom'
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  FileText,
+  LayoutDashboard,
+  Link2,
+  LogOut,
+  Receipt,
+  Settings,
+  Users,
+} from 'lucide-react'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import { useNavigate } from 'react-router-dom'
-import { Bell, Moon, Search, Sun, User } from 'lucide-react'
-import { useNotifications } from '../../contexts/NotificationsContext'
-import { useSearch } from '../../contexts/SearchContext'
-import { useTheme } from '../../contexts/ThemeContext'
 
-
-const navSimple = [
+const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+]
+
+const expandableItems = [
+  {
+    icon: Users,
+    label: 'Clients',
+    basePath: '/clients',
+    items: [
+      { to: '/clients', label: 'List Clients', end: true },
+      { to: '/clients/create', label: 'Create Client' },
+    ],
+  },
+  {
+    icon: FileText,
+    label: 'Deliverables',
+    basePath: '/deliverables',
+    items: [
+      { to: '/deliverables', label: 'List Deliverables', end: true },
+      { to: '/deliverables/create', label: 'Create Deliverable' },
+    ],
+  },
+]
+
+const bottomNavItems = [
   { to: '/sources', label: 'Sources', icon: Link2 },
   { to: '/billing', label: 'Billing', icon: Receipt },
 ]
 
-const clientsSubnav = [
-  { to: '/clients/create', label: 'Create Client' },
-  { to: '/clients', label: 'List Clients', end: true },
-]
-
-const deliverablesSubnav = [
-  { to: '/deliverables/create', label: 'Create Deliverable' },
-  { to: '/deliverables', label: 'List Deliverables', end: true },
-]
-
-const linkClass = (isActive) =>
-  clsx(
-    'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-    isActive
-      ? 'bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-200'
-      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
-  )
-function ExpandableNavItem({ icon: Icon, label, basePath, items }) {
+function ExpandableNavItem({ icon: Icon, label, basePath, items, collapsed }) {
   const location = useLocation()
   const isActive = location.pathname.startsWith(basePath)
   const [expanded, setExpanded] = useState(isActive)
@@ -42,182 +54,197 @@ function ExpandableNavItem({ icon: Icon, label, basePath, items }) {
     if (isActive && !expanded) setExpanded(true)
   }, [isActive])
 
+  if (collapsed) {
+    return (
+      <NavLink
+        to={items[0]?.to || basePath}
+        className={({ isActive: linkActive }) =>
+          clsx(
+            'flex items-center justify-center rounded-xl p-2.5 transition-all duration-200',
+            linkActive || isActive
+              ? 'bg-violet-500/15 text-violet-400 shadow-[inset_0_0_0_1px_rgba(139,92,246,0.2)]'
+              : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+          )
+        }
+        title={label}
+      >
+        <Icon className="h-5 w-5" />
+      </NavLink>
+    )
+  }
+
   return (
     <div className="space-y-0.5">
       <button
         type="button"
         onClick={() => setExpanded((e) => !e)}
         className={clsx(
-          'flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+          'flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200',
           isActive
-            ? 'bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-200'
-            : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
+            ? 'bg-violet-500/15 text-violet-400 shadow-[inset_0_0_0_1px_rgba(139,92,246,0.2)]'
+            : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
         )}
       >
         <span className="flex items-center gap-3">
           <Icon className="h-5 w-5 shrink-0" />
           {label}
         </span>
-        {expanded ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
+        {expanded ? <ChevronDown className="h-4 w-4 shrink-0 opacity-50" /> : <ChevronRight className="h-4 w-4 shrink-0 opacity-50" />}
       </button>
-      {expanded && (
-        <div className="ml-4 space-y-0.5 border-l border-gray-200 pl-2 dark:border-gray-700">
-          {items.map(({ to, label: subLabel, end }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
-              className={({ isActive: subActive }) =>
-                clsx(
-                  'flex items-center rounded-lg px-3 py-2 text-sm transition-colors',
-                  subActive
-                    ? 'font-medium text-violet-600 dark:text-violet-400'
-                    : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
-                )
-              }
-            >
-              {subLabel}
-            </NavLink>
-          ))}
-        </div>
-      )}
+      <div
+        className={clsx(
+          'ml-4 space-y-0.5 border-l border-slate-700/50 pl-3 overflow-hidden transition-all duration-200',
+          expanded ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'
+        )}
+      >
+        {items.map(({ to, label: subLabel, end }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={end}
+            className={({ isActive: subActive }) =>
+              clsx(
+                'flex items-center rounded-lg px-3 py-2 text-sm transition-all duration-200',
+                subActive
+                  ? 'font-medium text-violet-400'
+                  : 'text-slate-500 hover:text-slate-300'
+              )
+            }
+          >
+            {subLabel}
+          </NavLink>
+        ))}
+      </div>
     </div>
   )
 }
 
-export function Sidebar() {
-  
+export function Sidebar({ collapsed, onToggle }) {
   const { user, logout } = useAuth()
-  const { theme, toggleTheme } = useTheme()
-  const { items, unreadCount, markAllRead, clearAll } = useNotifications()
-  const { query, setQuery } = useSearch()
-  const [profileOpen, setProfileOpen] = useState(false)
-  const [notifOpen, setNotifOpen] = useState(false)
   const navigate = useNavigate()
+  const [profileOpen, setProfileOpen] = useState(false)
+
+  const linkClass = (isActive) =>
+    clsx(
+      'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200',
+      collapsed && 'justify-center px-0',
+      isActive
+        ? 'bg-violet-500/15 text-violet-400 shadow-[inset_0_0_0_1px_rgba(139,92,246,0.2)]'
+        : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+    )
+
   return (
-    <aside className="flex w-70 flex-col border-r border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
-      <nav className="flex-1 space-y-5 p-2">
-      {/* Profile (left), Theme (right) */}
-      <div className="flex items-center justify-between gap-1">
+    <aside
+      data-tour="sidebar"
+      className={clsx(
+        'fixed inset-y-0 left-0 z-30 flex flex-col border-r border-slate-800/60 bg-slate-900 transition-all duration-300',
+        collapsed ? 'w-18' : 'w-64'
+      )}
+    >
+      {/* Brand */}
+      <div className={clsx('flex items-center border-b border-slate-800/60 px-4 py-4', collapsed && 'justify-center px-2')}>
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-violet-500 to-violet-700 text-sm font-bold text-white shadow-lg shadow-violet-500/20">
+          ET
+        </div>
+        {!collapsed && (
+          <div className="ml-3">
+            <p className="text-sm font-semibold text-white">EditTrack</p>
+            <p className="text-[11px] text-slate-500">Editor toolkit</p>
+          </div>
+        )}
+      </div>
+
+      {/* Nav */}
+      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+        {navItems.map(({ to, label, icon: Icon }) => (
+          <NavLink key={to} to={to} className={({ isActive }) => linkClass(isActive)} title={collapsed ? label : undefined}>
+            <Icon className="h-5 w-5 shrink-0" />
+            {!collapsed && label}
+          </NavLink>
+        ))}
+
+        {expandableItems.map((item) => (
+          <ExpandableNavItem key={item.basePath} {...item} collapsed={collapsed} />
+        ))}
+
+        <div className="my-3 border-t border-slate-800/60" />
+
+        {bottomNavItems.map(({ to, label, icon: Icon }) => (
+          <NavLink key={to} to={to} className={({ isActive }) => linkClass(isActive)} title={collapsed ? label : undefined}>
+            <Icon className="h-5 w-5 shrink-0" />
+            {!collapsed && label}
+          </NavLink>
+        ))}
+      </nav>
+
+      {/* Bottom: Profile + Collapse */}
+      <div className="border-t border-slate-800/60 p-3 space-y-2">
+        <NavLink to="/settings" className={({ isActive }) => linkClass(isActive)} title={collapsed ? 'Settings' : undefined}>
+          <Settings className="h-5 w-5 shrink-0" />
+          {!collapsed && 'Settings'}
+        </NavLink>
+
+        {/* Profile */}
         <div className="relative">
           <button
             type="button"
-            onClick={() => { setProfileOpen(!profileOpen); setNotifOpen(false) }}
-            className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-gray-100 dark:hover:bg-gray-800"
+            onClick={() => setProfileOpen(!profileOpen)}
+            className={clsx(
+              'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200 hover:bg-white/5',
+              collapsed && 'justify-center px-0'
+            )}
           >
             {user?.avatar_url ? (
-              <img src={user.avatar_url} alt="" className="h-8 w-8 rounded-full object-cover" />
+              <img src={user.avatar_url} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover ring-2 ring-slate-700" />
             ) : (
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-violet-100 text-violet-600 dark:bg-violet-900/50 dark:text-violet-300">
-                <User className="h-4 w-4" />
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-violet-500/20 text-xs font-semibold text-violet-400 ring-2 ring-slate-700">
+                {(user?.display_name || user?.email || '?')[0].toUpperCase()}
               </div>
             )}
-            <span className="hidden text-sm font-medium text-gray-700 dark:text-gray-200 sm:block">
-              {user?.display_name || user?.email || 'Account'}
-            </span>
-            <ChevronDown className="h-4 w-4 text-gray-500" />
+            {!collapsed && (
+              <>
+                <div className="flex-1 text-left min-w-0">
+                  <p className="truncate text-sm font-medium text-slate-200">
+                    {user?.display_name || user?.email || 'Account'}
+                  </p>
+                </div>
+                <ChevronDown className="h-4 w-4 shrink-0 text-slate-500" />
+              </>
+            )}
           </button>
           {profileOpen && (
             <>
-              <div className="fixed inset-0 z-10" aria-hidden onClick={() => setProfileOpen(false)} />
-              <div className="absolute left-0 top-full z-20 mt-1 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+              <div className="fixed inset-0 z-10" onClick={() => setProfileOpen(false)} />
+              <div className="absolute bottom-full left-0 z-20 mb-1 w-48 rounded-xl border border-slate-700 bg-slate-800 py-1.5 shadow-xl">
                 <button
                   type="button"
-                  className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-slate-300 hover:bg-slate-700/50 hover:text-white"
                   onClick={() => { setProfileOpen(false); navigate('/settings') }}
                 >
-                  Settings
+                  <Settings className="h-4 w-4" /> Settings
                 </button>
                 <button
                   type="button"
-                  className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-rose-400 hover:bg-rose-500/10 hover:text-rose-300"
                   onClick={() => { setProfileOpen(false); logout(); navigate('/login') }}
                 >
-                  Sign out
+                  <LogOut className="h-4 w-4" /> Sign out
                 </button>
               </div>
             </>
           )}
         </div>
 
+        {/* Collapse toggle */}
         <button
           type="button"
-          onClick={toggleTheme}
-          className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-300"
-          aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          onClick={onToggle}
+          className="flex w-full items-center justify-center rounded-xl p-2 text-slate-500 hover:bg-white/5 hover:text-slate-300 transition-all duration-200"
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
-          {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+          {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
         </button>
       </div>
-        <NavLink to="/dashboard" className={({ isActive }) => linkClass(isActive)}>
-          <LayoutDashboard className="h-5 w-5 shrink-0" />
-          Dashboard
-        </NavLink>
-        <ExpandableNavItem icon={Users} label="Clients" basePath="/clients" items={clientsSubnav} />
-        <ExpandableNavItem icon={FileText} label="Deliverables" basePath="/deliverables" items={deliverablesSubnav} />
-        {navSimple.slice(2).map(({ to, label, icon: Icon }) => (
-          <NavLink key={to} to={to} className={({ isActive }) => linkClass(isActive)}>
-            <Icon className="h-5 w-5 shrink-0" />
-            {label}
-          </NavLink>
-        ))}
-        <div className="space-y-0.5">
-          <button
-            type="button"
-            onClick={() => { setNotifOpen(!notifOpen); setProfileOpen(false) }}
-            className={clsx(
-              'flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-              notifOpen
-                ? 'bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-200'
-                : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'
-            )}
-          >
-            <span className="flex items-center gap-3">
-              <span className="relative">
-                <Bell className="h-5 w-5 shrink-0" />
-                {unreadCount > 0 && (
-                  <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-violet-500 px-1 text-[10px] font-medium text-white">
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </span>
-                )}
-              </span>
-              Notifications
-            </span>
-            {notifOpen ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
-          </button>
-          {notifOpen && (
-            <div className="ml-4 border-l border-gray-200 pl-2 dark:border-gray-700">
-              <div className="rounded-lg border border-gray-200 bg-white py-2 dark:border-gray-700 dark:bg-gray-800">
-                <div className="flex items-center justify-between px-3 pb-2">
-                  <span className="text-sm font-medium text-gray-900 dark:text-white">Notifications</span>
-                  {items.length > 0 && (
-                    <div className="flex gap-1">
-                      <button type="button" onClick={markAllRead} className="text-xs text-violet-600 hover:underline dark:text-violet-400">
-                        Mark read
-                      </button>
-                      <button type="button" onClick={clearAll} className="text-xs text-gray-500 hover:underline dark:text-gray-400">
-                        Clear
-                      </button>
-                    </div>
-                  )}
-                </div>
-                {items.length === 0 ? (
-                  <p className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">No notifications yet.</p>
-                ) : (
-                  <div className="max-h-64 overflow-y-auto">
-                    {items.map((n) => (
-                      <div key={n.id} className={`border-b border-gray-100 px-3 py-2 last:border-0 dark:border-gray-700 ${!n.read ? 'bg-violet-50/50 dark:bg-violet-900/10' : ''}`}>
-                        <p className="text-sm font-medium text-gray-900 dark:text-white">{n.title}</p>
-                        {n.message && <p className="text-xs text-gray-500 dark:text-gray-400">{n.message}</p>}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      </nav>
     </aside>
   )
 }

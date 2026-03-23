@@ -889,6 +889,96 @@ def dashboard_overview(
     )
     trend_rows = db.execute(trend_stmt).all()
 
+    # -- Deliverables by type --
+    type_stmt = (
+        select(Deliverable.type, func.count(Deliverable.id).label("cnt"))
+        .join(Client, Client.id == Deliverable.client_id)
+        .where(and_(*conditions))
+        .group_by(Deliverable.type)
+    )
+    type_rows = db.execute(type_stmt).all()
+    deliverables_by_type = {r.type: int(r.cnt) for r in type_rows}
+
+    # -- Deliverables by status --
+    status_stmt = (
+        select(Deliverable.status, func.count(Deliverable.id).label("cnt"))
+        .join(Client, Client.id == Deliverable.client_id)
+        .where(and_(*conditions))
+        .group_by(Deliverable.status)
+    )
+    status_rows = db.execute(status_stmt).all()
+    deliverables_by_status = {r.status: int(r.cnt) for r in status_rows}
+
+    # -- Payment collection rate --
+    total_rev = paid_total + unpaid_total
+    payment_collection_rate = round((paid_total / total_rev * 100) if total_rev > 0 else 0, 1)
+
+    # -- Average turnaround days --
+    turnaround_stmt = (
+        select(
+            func.avg(
+                func.extract("epoch", Deliverable.completed_at - Deliverable.created_at) / 86400.0
+            ).label("avg_days")
+        )
+        .join(Client, Client.id == Deliverable.client_id)
+        .where(and_(*conditions, Deliverable.completed_at.is_not(None)))
+    )
+    avg_turnaround_row = db.execute(turnaround_stmt).one()
+    avg_turnaround_days = round(float(avg_turnaround_row.avg_days or 0), 1)
+
+    # -- Monthly comparison (current vs previous month) --
+    from datetime import date as date_type
+    today_date = date_type.today()
+    cur_month_start = today_date.replace(day=1)
+    prev_month_end = cur_month_start - timedelta(days=1)
+    prev_month_start = prev_month_end.replace(day=1)
+
+    month_conditions_base = [
+        Deliverable.owner_user_id == current_user.id,
+        Client.owner_user_id == current_user.id,
+        Deliverable.archived.is_(False),
+        Client.archived.is_(False),
+        Deliverable.price_value.is_not(None),
+    ]
+    if client_id is not None:
+        month_conditions_base.append(Deliverable.client_id == client_id)
+
+    cur_month_stmt = (
+        select(func.coalesce(func.sum(Deliverable.price_value), 0).label("total"))
+        .join(Client, Client.id == Deliverable.client_id)
+        .where(and_(*month_conditions_base, func.date(dts) >= cur_month_start, func.date(dts) <= today_date))
+    )
+    prev_month_stmt = (
+        select(func.coalesce(func.sum(Deliverable.price_value), 0).label("total"))
+        .join(Client, Client.id == Deliverable.client_id)
+        .where(and_(*month_conditions_base, func.date(dts) >= prev_month_start, func.date(dts) <= prev_month_end))
+    )
+    cur_total = float(db.execute(cur_month_stmt).scalar() or 0)
+    prev_total = float(db.execute(prev_month_stmt).scalar() or 0)
+    change_pct = round(((cur_total - prev_total) / prev_total * 100) if prev_total > 0 else 0, 1)
+
+    # -- Recent activity (last 10 deliverables) --
+    recent_stmt = (
+        select(
+            Deliverable.id,
+            Deliverable.title,
+            Deliverable.type,
+            Client.name.label("client_name"),
+            Deliverable.payment_status,
+            Deliverable.price_value,
+            Deliverable.created_at,
+        )
+        .join(Client, Client.id == Deliverable.client_id)
+        .where(
+            Deliverable.owner_user_id == current_user.id,
+            Client.owner_user_id == current_user.id,
+            Deliverable.archived.is_(False),
+        )
+        .order_by(Deliverable.created_at.desc())
+        .limit(10)
+    )
+    recent_rows = db.execute(recent_stmt).all()
+
     return {
         "paid_total": paid_total,
         "unpaid_total": unpaid_total,
@@ -896,6 +986,27 @@ def dashboard_overview(
         "unpaid_deliverables_count": int(summary.unpaid_count or 0),
         "top_client_payer": top_client_payer,
         "best_pay_per_deliverable_client": best_ppd_client,
+        "deliverables_by_type": deliverables_by_type,
+        "deliverables_by_status": deliverables_by_status,
+        "payment_collection_rate": payment_collection_rate,
+        "avg_turnaround_days": avg_turnaround_days,
+        "monthly_comparison": {
+            "current_month_total": cur_total,
+            "previous_month_total": prev_total,
+            "change_pct": change_pct,
+        },
+        "recent_activity": [
+            {
+                "id": r.id,
+                "title": r.title,
+                "type": r.type,
+                "client_name": r.client_name,
+                "payment_status": r.payment_status,
+                "price_value": float(r.price_value) if r.price_value else None,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            }
+            for r in recent_rows
+        ],
         "trend": [
             {"bucket": r.bucket, "paid_total": float(r.paid_total), "unpaid_total": float(r.unpaid_total)}
             for r in trend_rows
