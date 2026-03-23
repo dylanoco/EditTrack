@@ -4,7 +4,6 @@ import { useAuth } from '../contexts/AuthContext'
 import { register as registerApi } from '../api'
 
 export function RegisterPage() {
-  const apiBase = import.meta.env.VITE_API_URL?.replace(/\/+$/, '') || 'http://localhost:8000'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [displayName, setDisplayName] = useState('')
@@ -94,12 +93,15 @@ export function RegisterPage() {
               Create account
             </button>
           </form>
-          <a
-            href={`${apiBase}/auth/google/start`}
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+          <button
+            type="button"
+            disabled
+            aria-disabled="true"
+            title="Google sign-in coming soon"
+            className="mt-3 flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-400 opacity-70 dark:border-slate-700 dark:text-slate-500"
           >
-            Continue with Google
-          </a>
+            Continue with Google (Coming soon)
+          </button>
         </div>
 
         <p className="mt-6 text-center text-sm text-slate-500 dark:text-slate-400">
