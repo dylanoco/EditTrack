@@ -47,6 +47,9 @@ export function SourceCardGrid({ sources, onUseSource, onOpenVideo, columns = 4,
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 {s.duration_sec != null ? `${s.duration_sec}s` : '—'}
               </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {s.fetched_at || s.created_at ? `Date: ${new Date(s.fetched_at || s.created_at).toLocaleDateString()}` : ''}
+              </p>
               <div className={compact ? 'mt-2 flex gap-2' : 'flex flex-wrap gap-2'}>
                 {onUseSource && (
                   <button

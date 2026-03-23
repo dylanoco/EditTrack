@@ -5,6 +5,7 @@ Uses app access token (Client Credentials); token is cached in memory.
 from __future__ import annotations
 
 import os
+import re
 import time
 from typing import Any, Optional
 
@@ -126,3 +127,66 @@ def fetch_clips(
             break
 
     return all_clips
+
+
+def _parse_twitch_duration_to_seconds(raw: Optional[str]) -> Optional[int]:
+    """
+    Parse Twitch video duration strings like '2h3m10s' into seconds.
+    """
+    if not raw:
+        return None
+    total = 0
+    for value, unit in re.findall(r"(\d+)([hms])", raw.lower()):
+        n = int(value)
+        if unit == "h":
+            total += n * 3600
+        elif unit == "m":
+            total += n * 60
+        elif unit == "s":
+            total += n
+    return total if total > 0 else None
+
+
+def fetch_vods(
+    user_id: str,
+    first: int = 100,
+) -> list[dict[str, Any]]:
+    """
+    Fetch VODs (videos) for a broadcaster user_id.
+    """
+    client_id, _ = _get_client_credentials()
+    token = get_app_token()
+
+    params: dict[str, Any] = {
+        "user_id": user_id,
+        "type": "archive",
+        "first": min(first, 100),
+    }
+    all_vods: list[dict[str, Any]] = []
+    cursor: Optional[str] = None
+
+    while True:
+        if cursor:
+            params["after"] = cursor
+        resp = httpx.get(
+            f"{TWITCH_HELIX_BASE}/videos",
+            params=params,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Client-Id": client_id,
+            },
+            timeout=15.0,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        vods = data.get("data") or []
+        all_vods.extend(vods)
+        pagination = data.get("pagination") or {}
+        cursor = pagination.get("cursor")
+        if not cursor or len(vods) < params["first"]:
+            break
+
+    for vod in all_vods:
+        vod["duration_sec"] = _parse_twitch_duration_to_seconds(vod.get("duration"))
+
+    return all_vods

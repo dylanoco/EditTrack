@@ -21,6 +21,8 @@ export function ClientPage() {
   const [deliverables, setDeliverables] = useState([])
   const [sources, setSources] = useState([])
   const [syncing, setSyncing] = useState(false)
+  const [sourceType, setSourceType] = useState('clips')
+  const [sourceSort, setSourceSort] = useState('newest')
   const [form, setForm] = useState(initialDeliverable)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -63,11 +65,22 @@ export function ClientPage() {
   async function onSyncSources(force = false) {
     setSyncing(true); setError(null)
     try {
-      const rows = await syncClientSources(clientId, 'twitch', force)
-      addNotification({ type: 'success', title: 'Sources synced', message: `Fetched ${rows.length} Twitch clip(s)` })
+      const rows = await syncClientSources(clientId, 'twitch', force, sourceType)
+      const label = sourceType === 'vods' ? 'VOD(s)' : 'clip(s)'
+      addNotification({ type: 'success', title: 'Sources synced', message: `Fetched ${rows.length} Twitch ${label}` })
       setSources(rows)
     } catch (e) { setError(e instanceof Error ? e.message : String(e)) } finally { setSyncing(false) }
   }
+
+  const sortedSources = useMemo(() => {
+    const copy = [...sources]
+    copy.sort((a, b) => {
+      const aTime = new Date(a.fetched_at || a.created_at || 0).getTime()
+      const bTime = new Date(b.fetched_at || b.created_at || 0).getTime()
+      return sourceSort === 'oldest' ? aTime - bTime : bTime - aTime
+    })
+    return copy
+  }, [sources, sourceSort])
 
   if (loading) return <div className="flex items-center justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-2 border-violet-500 border-t-transparent" /></div>
   if (!client) return <p className="text-sm text-slate-500">Client not found.</p>
@@ -163,13 +176,21 @@ export function ClientPage() {
               <button type="button" onClick={() => setSourcesModalOpen(false)} className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Close"><X className="h-5 w-5" /></button>
             </div>
             <div className="max-h-[calc(90vh-140px)] overflow-y-auto p-6">
-              <div className="mb-4 flex flex-wrap gap-2">
+              <div className="mb-4 flex flex-wrap items-center gap-2">
+                <select value={sourceType} onChange={(e) => setSourceType(e.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
+                  <option value="clips">Clips</option>
+                  <option value="vods">VODs</option>
+                </select>
+                <select value={sourceSort} onChange={(e) => setSourceSort(e.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
+                  <option value="newest">Sort: Newest first</option>
+                  <option value="oldest">Sort: Oldest first</option>
+                </select>
                 <button type="button" onClick={() => onSyncSources(false)} disabled={syncing} className="rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50">{syncing ? 'Fetching...' : 'Fetch sources'}</button>
                 <button type="button" onClick={() => onSyncSources(true)} disabled={syncing} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">Force refresh</button>
               </div>
               {syncing && sources.length === 0 ? <p className="py-8 text-center text-sm text-slate-400">Fetching sources...</p>
                 : sources.length === 0 ? <p className="py-8 text-center text-sm text-slate-400">No sources found. Try force refresh.</p>
-                : <SourceCardGrid sources={sources} onUseSource={useSourceAndClose} columns={3} />}
+                : <SourceCardGrid sources={sortedSources} onUseSource={useSourceAndClose} columns={3} />}
             </div>
           </div>
         </div>

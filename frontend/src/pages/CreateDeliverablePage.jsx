@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, X } from 'lucide-react'
 import { createDeliverable, fetchClients, syncClientSources } from '../api'
@@ -21,6 +21,8 @@ export function CreateDeliverablePage() {
   const [sources, setSources] = useState([])
   const [sourcesLoading, setSourcesLoading] = useState(false)
   const [sourcesModalOpen, setSourcesModalOpen] = useState(false)
+  const [sourceType, setSourceType] = useState('clips')
+  const [sourceSort, setSourceSort] = useState('newest')
   const [error, setError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
 
@@ -46,8 +48,9 @@ export function CreateDeliverablePage() {
     if (!form.client_id) { setError('Select a client first'); return }
     setError(null); setSourcesLoading(true)
     try {
-      const list = await syncClientSources(Number(form.client_id), 'twitch', force)
-      addNotification({ type: 'success', title: 'Sources synced', message: `Fetched ${list.length} Twitch clip(s)` })
+      const list = await syncClientSources(Number(form.client_id), 'twitch', force, sourceType)
+      const label = sourceType === 'vods' ? 'VOD(s)' : 'clip(s)'
+      addNotification({ type: 'success', title: 'Sources synced', message: `Fetched ${list.length} Twitch ${label}` })
       setSources(list)
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); setSources([]) } finally { setSourcesLoading(false) }
   }
@@ -62,6 +65,16 @@ export function CreateDeliverablePage() {
     setForm((f) => ({ ...f, source_id: s.id ?? null, source_title: s.title ?? '', duration_sec: s.duration_sec ?? null, source_url: s.url ?? '', title: s.title?.trim() || f.title }))
     setSourcesModalOpen(false)
   }
+
+  const sortedSources = useMemo(() => {
+    const copy = [...sources]
+    copy.sort((a, b) => {
+      const aTime = new Date(a.fetched_at || a.created_at || 0).getTime()
+      const bTime = new Date(b.fetched_at || b.created_at || 0).getTime()
+      return sourceSort === 'oldest' ? aTime - bTime : bTime - aTime
+    })
+    return copy
+  }, [sources, sourceSort])
 
   async function onSubmit(e) {
     e.preventDefault(); setError(null); setSubmitting(true)
@@ -122,13 +135,21 @@ export function CreateDeliverablePage() {
               <button type="button" onClick={() => setSourcesModalOpen(false)} className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Close"><X className="h-5 w-5" /></button>
             </div>
             <div className="max-h-[calc(90vh-140px)] overflow-y-auto p-6">
-              <div className="mb-4 flex flex-wrap gap-2">
+              <div className="mb-4 flex flex-wrap items-center gap-2">
+                <select value={sourceType} onChange={(e) => setSourceType(e.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
+                  <option value="clips">Clips</option>
+                  <option value="vods">VODs</option>
+                </select>
+                <select value={sourceSort} onChange={(e) => setSourceSort(e.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
+                  <option value="newest">Sort: Newest first</option>
+                  <option value="oldest">Sort: Oldest first</option>
+                </select>
                 <button type="button" onClick={() => fetchSources(false)} disabled={sourcesLoading} className="rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50">{sourcesLoading ? 'Fetching...' : 'Fetch sources'}</button>
                 <button type="button" onClick={() => fetchSources(true)} disabled={sourcesLoading} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">Force refresh</button>
               </div>
               {sourcesLoading && sources.length === 0 ? <p className="py-8 text-center text-sm text-slate-400">Fetching sources...</p>
                 : sources.length === 0 ? <p className="py-8 text-center text-sm text-slate-400">No sources found. Try force refresh.</p>
-                : <SourceCardGrid sources={sources} onUseSource={useSource} columns={3} />}
+                : <SourceCardGrid sources={sortedSources} onUseSource={useSource} columns={3} />}
             </div>
           </div>
         </div>

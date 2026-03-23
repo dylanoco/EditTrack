@@ -144,8 +144,8 @@ export async function fetchClientSources(clientId) {
   return request(`/clients/${clientId}/sources`)
 }
 
-export async function syncClientSources(clientId, platform = 'twitch', force = false) {
-  const qs = new URLSearchParams({ platform, force: String(force) })
+export async function syncClientSources(clientId, platform = 'twitch', force = false, sourceType = 'clips') {
+  const qs = new URLSearchParams({ platform, force: String(force), source_type: sourceType })
   return request(`/clients/${clientId}/sources/sync?${qs}`, { method: 'POST' })
 }
 

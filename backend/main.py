@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from database import engine, get_db
 from models import Base, Client, Deliverable, Invoice, InvoiceItem, OAuthAccount, Source, User
-from twitch import fetch_clips, resolve_broadcaster_id
+from twitch import fetch_clips, fetch_vods, resolve_broadcaster_id
 from schemas import (
     AuthTokenResponse,
     ClientCreate,
@@ -470,6 +470,7 @@ SOURCES_CACHE_MINUTES = 10
 def sync_client_sources(
     client_id: int,
     platform: str = Query("twitch", description="Platform to sync (twitch only for now)"),
+    source_type: str = Query("clips", description="Source type to sync: clips | vods"),
     force: bool = Query(False, description="If True, always refetch from Twitch"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -480,17 +481,21 @@ def sync_client_sources(
 
     if platform != "twitch":
         raise HTTPException(status_code=400, detail="Only platform=twitch is supported")
+    if source_type not in {"clips", "vods"}:
+        raise HTTPException(status_code=400, detail="source_type must be clips or vods")
 
     now = datetime.now(timezone.utc)
     cache_cutoff = now - timedelta(minutes=SOURCES_CACHE_MINUTES)
 
     if not force:
+        source_prefix = "clip:" if source_type == "clips" else "vod:"
         stmt = (
             select(Source)
             .where(
                 Source.client_id == client_id,
                 Source.platform == "twitch",
                 Source.owner_user_id == current_user.id,
+                Source.external_id.startswith(source_prefix),
             )
             .order_by(Source.fetched_at.desc().nullslast(), Source.created_at.desc())
         )
@@ -521,7 +526,7 @@ def sync_client_sources(
         db.flush()
 
     try:
-        clips = fetch_clips(broadcaster_id, first=100)
+        items = fetch_clips(broadcaster_id, first=100) if source_type == "clips" else fetch_vods(broadcaster_id, first=100)
     except Exception as e:
         raise HTTPException(
             status_code=502,
@@ -536,14 +541,15 @@ def sync_client_sources(
         if s.external_id
     }
 
-    for clip in clips:
-        ext_id = clip.get("id")
+    for item in items:
+        raw_id = item.get("id")
+        ext_id = f"{'clip' if source_type == 'clips' else 'vod'}:{raw_id}" if raw_id else None
         if not ext_id:
             continue
-        title = clip.get("title") or "Untitled clip"
-        url = clip.get("url")
-        thumbnail_url = clip.get("thumbnail_url")
-        duration = clip.get("duration")
+        title = item.get("title") or ("Untitled clip" if source_type == "clips" else "Untitled VOD")
+        url = item.get("url")
+        thumbnail_url = item.get("thumbnail_url")
+        duration = item.get("duration") if source_type == "clips" else item.get("duration_sec")
         duration_sec = int(duration) if duration is not None else None
 
         if ext_id in existing_by_ext:
@@ -576,6 +582,7 @@ def sync_client_sources(
             Source.client_id == client_id,
             Source.platform == "twitch",
             Source.owner_user_id == current_user.id,
+            Source.external_id.startswith("clip:" if source_type == "clips" else "vod:"),
         )
         .order_by(Source.fetched_at.desc().nullslast(), Source.created_at.desc())
     )
