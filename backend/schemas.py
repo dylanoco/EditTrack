@@ -216,3 +216,24 @@ class InvoiceCreate(BaseModel):
     period_end: date
     label: Optional[str] = None
 
+
+class InvoiceLineItemExport(BaseModel):
+    """One row per deliverable line on an invoice (batch or single-deliverable invoices)."""
+
+    invoice_id: int
+    invoice_label: str
+    invoice_created_at: datetime
+    invoice_period_start: date
+    invoice_period_end: date
+    invoice_status: str
+    invoice_total: float
+    client_id: int
+    client_name: str
+    invoice_item_id: int
+    line_amount: float
+    deliverable_id: int
+    deliverable_title: str
+    deliverable_type: str
+    deliverable_payment_status: str
+    deliverable_effective_at: Optional[datetime] = None
+

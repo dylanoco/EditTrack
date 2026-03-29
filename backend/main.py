@@ -32,6 +32,7 @@ from schemas import (
     DeliverableUpdate,
     InvoiceCreate,
     InvoiceDetailRead,
+    InvoiceLineItemExport,
     InvoiceRead,
     LoginRequest,
     ProfileUpdateRequest,
@@ -885,6 +886,79 @@ def list_billing_deliverables(
         .order_by(dts.asc(), Deliverable.id.asc())
     )
     return db.scalars(stmt).all()
+
+
+@app.get("/billing/invoice-line-items", response_model=List[InvoiceLineItemExport])
+def list_invoice_line_items(
+    client_id: Optional[int] = Query(default=None),
+    period_start: Optional[date] = Query(default=None),
+    period_end: Optional[date] = Query(default=None),
+    include_archived_clients: bool = Query(False, description="Include invoices for archived clients"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> List[InvoiceLineItemExport]:
+    """Each invoiced deliverable as one row (single- or multi-item invoices). Filter by invoice created date when period is set."""
+    if period_start is not None and period_end is not None and period_start > period_end:
+        raise HTTPException(status_code=400, detail="period_start must be <= period_end")
+
+    stmt = (
+        select(
+            Invoice.id.label("invoice_id"),
+            Invoice.label.label("invoice_label"),
+            Invoice.created_at.label("invoice_created_at"),
+            Invoice.period_start.label("invoice_period_start"),
+            Invoice.period_end.label("invoice_period_end"),
+            Invoice.status.label("invoice_status"),
+            Invoice.total_amount.label("invoice_total"),
+            Client.id.label("client_id"),
+            Client.name.label("client_name"),
+            InvoiceItem.id.label("invoice_item_id"),
+            InvoiceItem.amount.label("line_amount"),
+            Deliverable.id.label("deliverable_id"),
+            Deliverable.title.label("deliverable_title"),
+            Deliverable.type.label("deliverable_type"),
+            Deliverable.payment_status.label("deliverable_payment_status"),
+            func.coalesce(Deliverable.completed_at, Deliverable.created_at).label("deliverable_effective_at"),
+        )
+        .select_from(InvoiceItem)
+        .join(Invoice, InvoiceItem.invoice_id == Invoice.id)
+        .join(Client, Invoice.client_id == Client.id)
+        .join(Deliverable, InvoiceItem.deliverable_id == Deliverable.id)
+        .where(Invoice.owner_user_id == current_user.id)
+        .where(Client.owner_user_id == current_user.id)
+    )
+    if client_id is not None:
+        stmt = stmt.where(Invoice.client_id == client_id)
+    if not include_archived_clients:
+        stmt = stmt.where(Client.archived.is_(False))
+    if period_start is not None:
+        stmt = stmt.where(func.date(Invoice.created_at) >= period_start)
+    if period_end is not None:
+        stmt = stmt.where(func.date(Invoice.created_at) <= period_end)
+    stmt = stmt.order_by(Invoice.created_at.desc(), InvoiceItem.id.asc())
+
+    rows = db.execute(stmt).all()
+    return [
+        InvoiceLineItemExport(
+            invoice_id=r.invoice_id,
+            invoice_label=r.invoice_label or "",
+            invoice_created_at=r.invoice_created_at,
+            invoice_period_start=r.invoice_period_start,
+            invoice_period_end=r.invoice_period_end,
+            invoice_status=r.invoice_status,
+            invoice_total=float(r.invoice_total),
+            client_id=r.client_id,
+            client_name=r.client_name or "",
+            invoice_item_id=r.invoice_item_id,
+            line_amount=float(r.line_amount),
+            deliverable_id=r.deliverable_id,
+            deliverable_title=r.deliverable_title or "",
+            deliverable_type=r.deliverable_type or "",
+            deliverable_payment_status=r.deliverable_payment_status or "",
+            deliverable_effective_at=r.deliverable_effective_at,
+        )
+        for r in rows
+    ]
 
 
 def _deliverable_period_expr():
