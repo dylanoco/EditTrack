@@ -1325,8 +1325,7 @@ def invoice_single_deliverable(
     if already:
         raise HTTPException(status_code=400, detail="Deliverable is already invoiced")
 
-    client = _owned_client_or_404(db, deliverable.client_id, current_user.id)
-    dts = _deliverable_period_expr()
+    _owned_client_or_404(db, deliverable.client_id, current_user.id)
     eff_date = (deliverable.completed_at or deliverable.created_at).date()
 
     inv_status = "paid" if deliverable.payment_status == "paid" else (
@@ -1351,8 +1350,14 @@ def invoice_single_deliverable(
         amount=float(deliverable.price_value),
     ))
     db.commit()
-    db.refresh(invoice)
-    return invoice
+    inv = db.scalar(
+        select(Invoice)
+        .options(selectinload(Invoice.items))
+        .where(Invoice.id == invoice.id)
+    )
+    if inv is None:
+        raise HTTPException(status_code=500, detail="Invoice was created but could not be reloaded")
+    return inv
 
 
 @app.get("/invoices/{invoice_id}", response_model=InvoiceDetailRead)
