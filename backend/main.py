@@ -261,6 +261,26 @@ def update_me(
     return current_user
 
 
+@app.get("/me/setup")
+def get_setup_status(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    client_count = db.scalar(
+        select(func.count(Client.id)).where(
+            Client.owner_user_id == current_user.id,
+            Client.archived.is_(False),
+        )
+    ) or 0
+    deliverable_count = db.scalar(
+        select(func.count(Deliverable.id)).where(
+            Deliverable.owner_user_id == current_user.id,
+            Deliverable.archived.is_(False),
+        )
+    ) or 0
+    return {"client_count": client_count, "deliverable_count": deliverable_count}
+
+
 @app.get("/auth/google/start")
 def auth_google_start() -> RedirectResponse:
     if not GOOGLE_CLIENT_ID or not GOOGLE_REDIRECT_URI:
@@ -714,6 +734,8 @@ def create_deliverable(
 
     deliverable = Deliverable(**data, owner_user_id=current_user.id)
     db.add(deliverable)
+    if data.get("status") == "delivered" and deliverable.completed_at is None:
+        deliverable.completed_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(deliverable)
     return deliverable
@@ -819,6 +841,13 @@ def update_deliverable(
                     status_code=400,
                     detail="price_value is required when price_mode is override",
                 )
+
+    if "status" in data:
+        new_status = data["status"]
+        if new_status == "delivered" and deliverable.completed_at is None:
+            deliverable.completed_at = datetime.now(timezone.utc)
+        elif new_status in ("todo", "doing") and deliverable.completed_at is not None:
+            deliverable.completed_at = None
 
     for k, v in data.items():
         setattr(deliverable, k, v)
@@ -1266,6 +1295,61 @@ def create_invoice(
             )
         )
 
+    db.commit()
+    db.refresh(invoice)
+    return invoice
+
+
+@app.post("/deliverables/{deliverable_id}/invoice", response_model=InvoiceRead)
+def invoice_single_deliverable(
+    deliverable_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Invoice:
+    deliverable = db.scalar(
+        select(Deliverable).where(
+            Deliverable.id == deliverable_id,
+            Deliverable.owner_user_id == current_user.id,
+        )
+    )
+    if not deliverable:
+        raise HTTPException(status_code=404, detail="Deliverable not found")
+    if deliverable.archived:
+        raise HTTPException(status_code=400, detail="Cannot invoice an archived deliverable")
+    if deliverable.price_value is None:
+        raise HTTPException(status_code=400, detail="Deliverable has no price set")
+
+    already = db.scalar(
+        select(InvoiceItem.id).where(InvoiceItem.deliverable_id == deliverable_id)
+    )
+    if already:
+        raise HTTPException(status_code=400, detail="Deliverable is already invoiced")
+
+    client = _owned_client_or_404(db, deliverable.client_id, current_user.id)
+    dts = _deliverable_period_expr()
+    eff_date = (deliverable.completed_at or deliverable.created_at).date()
+
+    inv_status = "paid" if deliverable.payment_status == "paid" else (
+        "partial" if deliverable.payment_status == "partial" else "unpaid"
+    )
+
+    invoice = Invoice(
+        client_id=deliverable.client_id,
+        owner_user_id=current_user.id,
+        period_start=eff_date,
+        period_end=eff_date,
+        label=f"Invoice for: {deliverable.title}",
+        total_amount=float(deliverable.price_value),
+        status=inv_status,
+    )
+    db.add(invoice)
+    db.flush()
+
+    db.add(InvoiceItem(
+        invoice_id=invoice.id,
+        deliverable_id=deliverable.id,
+        amount=float(deliverable.price_value),
+    ))
     db.commit()
     db.refresh(invoice)
     return invoice

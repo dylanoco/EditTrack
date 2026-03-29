@@ -83,6 +83,7 @@ class Client(Base):
     price_thumbnail: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
     price_video: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
     notes: Mapped[Optional[str]] = mapped_column(Text)
+    info_sections: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
     archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     deliverables: Mapped[List["Deliverable"]] = relationship(back_populates="client")
@@ -172,7 +173,7 @@ class Deliverable(Base):
 
     status: Mapped[str] = mapped_column(
         String,
-        default="incomplete",
+        default="todo",
         nullable=False,
     )
 
@@ -216,8 +217,12 @@ class Deliverable(Base):
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
+    @property
+    def invoiced(self) -> bool:
+        return len(self.invoice_items) > 0
+
     __table_args__ = (
-        CheckConstraint("status IN ('complete','incomplete')", name="chk_deliv_status"),
+        CheckConstraint("status IN ('todo','doing','delivered')", name="chk_deliv_status"),
         CheckConstraint(
             "price_mode IN ('auto','override')",
             name="chk_deliv_price_mode",

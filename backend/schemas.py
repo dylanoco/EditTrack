@@ -46,6 +46,7 @@ class ClientBase(BaseModel):
     price_thumbnail: float
     price_video: float
     notes: Optional[str] = None
+    info_sections: Optional[list] = None
     archived: bool = False
 
 
@@ -67,6 +68,7 @@ class ClientUpdate(BaseModel):
     price_thumbnail: Optional[float] = None
     price_video: Optional[float] = None
     notes: Optional[str] = None
+    info_sections: Optional[list] = None
     archived: Optional[bool] = None
 
 
@@ -99,7 +101,7 @@ class DeliverableBase(BaseModel):
     type: str = Field(description="short | thumbnail | video")
     title: str
     description: Optional[str] = None
-    status: str = "incomplete"
+    status: str = "todo"
     performance: Optional[Dict[str, Any]] = None
     price_mode: str = "auto"
     price_value: Optional[float] = None
@@ -120,6 +122,7 @@ class DeliverableRead(DeliverableBase):
     created_at: datetime
     updated_at: datetime
     completed_at: Optional[datetime] = None
+    invoiced: bool = False
 
     class Config:
         from_attributes = True
