@@ -747,6 +747,13 @@ def list_deliverables(
     client_id: Optional[int] = Query(default=None),
     status: Optional[str] = Query(default=None),
     type: Optional[str] = Query(default=None, alias="deliverable_type"),
+    payment_status: Optional[str] = Query(default=None),
+    invoiced: Optional[bool] = Query(default=None),
+    sort: str = Query(
+        default="created_at",
+        description="created_at | updated_at | title | price_value | status | payment_status | effective_date | client_name",
+    ),
+    order: str = Query(default="desc", description="asc | desc"),
     archived: bool = Query(False, description="If True, return only archived deliverables"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -766,8 +773,42 @@ def list_deliverables(
         stmt = stmt.where(Deliverable.status == status)
     if type is not None:
         stmt = stmt.where(Deliverable.type == type)
+    if payment_status is not None:
+        if payment_status not in ("unpaid", "partial", "paid"):
+            raise HTTPException(status_code=400, detail="payment_status must be unpaid, partial, or paid")
+        stmt = stmt.where(Deliverable.payment_status == payment_status)
+    if invoiced is True:
+        stmt = stmt.where(
+            exists(select(1).where(InvoiceItem.deliverable_id == Deliverable.id))
+        )
+    elif invoiced is False:
+        stmt = stmt.where(
+            ~exists(select(1).where(InvoiceItem.deliverable_id == Deliverable.id))
+        )
 
-    stmt = stmt.order_by(Deliverable.created_at.desc())
+    if order not in ("asc", "desc"):
+        raise HTTPException(status_code=400, detail="order must be asc or desc")
+
+    eff = func.coalesce(Deliverable.completed_at, Deliverable.created_at)
+    order_col_map = {
+        "created_at": Deliverable.created_at,
+        "updated_at": Deliverable.updated_at,
+        "title": Deliverable.title,
+        "price_value": Deliverable.price_value,
+        "status": Deliverable.status,
+        "payment_status": Deliverable.payment_status,
+        "effective_date": eff,
+        "client_name": Client.name,
+    }
+    ol = order_col_map.get(sort)
+    if ol is None:
+        raise HTTPException(
+            status_code=400,
+            detail="sort must be one of: created_at, updated_at, title, price_value, status, payment_status, effective_date, client_name",
+        )
+    ord_expr = ol.desc() if order == "desc" else ol.asc()
+    stmt = stmt.order_by(ord_expr)
+
     return db.scalars(stmt).all()
 
 
