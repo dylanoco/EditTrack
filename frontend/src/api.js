@@ -93,6 +93,10 @@ export async function fetchDeliverables(params = {}) {
   if (params.client_id) qs.set('client_id', String(params.client_id))
   if (params.status) qs.set('status', params.status)
   if (params.deliverable_type) qs.set('deliverable_type', params.deliverable_type)
+  if (params.payment_status) qs.set('payment_status', params.payment_status)
+  if (typeof params.invoiced === 'boolean') qs.set('invoiced', String(params.invoiced))
+  if (params.sort) qs.set('sort', params.sort)
+  if (params.order) qs.set('order', params.order)
   if (params.archived !== undefined) qs.set('archived', String(params.archived))
 
   const suffix = qs.toString() ? `?${qs.toString()}` : ''
@@ -125,6 +129,17 @@ export async function fetchBillingDeliverables(params) {
   return request(`/billing/deliverables?${qs}`)
 }
 
+/** One row per invoiced deliverable (line item), for CSV export */
+export async function fetchInvoiceLineItems(params = {}) {
+  const qs = new URLSearchParams()
+  if (params.client_id) qs.set('client_id', String(params.client_id))
+  if (params.period_start) qs.set('period_start', params.period_start)
+  if (params.period_end) qs.set('period_end', params.period_end)
+  if (params.include_archived_clients) qs.set('include_archived_clients', 'true')
+  const suffix = qs.toString() ? `?${qs}` : ''
+  return request(`/billing/invoice-line-items${suffix}`)
+}
+
 export async function fetchInvoices(params = {}) {
   const qs = new URLSearchParams()
   if (params.client_id) qs.set('client_id', String(params.client_id))
@@ -147,5 +162,13 @@ export async function fetchClientSources(clientId) {
 export async function syncClientSources(clientId, platform = 'twitch', force = false, sourceType = 'clips') {
   const qs = new URLSearchParams({ platform, force: String(force), source_type: sourceType })
   return request(`/clients/${clientId}/sources/sync?${qs}`, { method: 'POST' })
+}
+
+export async function invoiceSingleDeliverable(deliverableId) {
+  return request(`/deliverables/${deliverableId}/invoice`, { method: 'POST' })
+}
+
+export async function fetchSetupStatus() {
+  return request('/me/setup')
 }
 

@@ -118,11 +118,11 @@ export function DashboardPage() {
   const statusChartData = useMemo(() => {
     const byStatus = overview?.deliverables_by_status || {}
     return {
-      labels: ['Complete', 'Incomplete'],
+      labels: ['Todo', 'Editing', 'Delivered'],
       datasets: [{
-        data: [byStatus.complete || 0, byStatus.incomplete || 0],
-        backgroundColor: ['rgba(16, 185, 129, 0.8)', 'rgba(239, 68, 68, 0.5)'],
-        borderColor: ['rgb(16, 185, 129)', 'rgb(239, 68, 68)'],
+        data: [byStatus.todo || 0, byStatus.doing || 0, byStatus.delivered || 0],
+        backgroundColor: ['rgba(148, 163, 184, 0.6)', 'rgba(59, 130, 246, 0.7)', 'rgba(16, 185, 129, 0.8)'],
+        borderColor: ['rgb(148, 163, 184)', 'rgb(59, 130, 246)', 'rgb(16, 185, 129)'],
         borderWidth: 2,
         hoverOffset: 6,
       }],
@@ -353,7 +353,7 @@ export function DashboardPage() {
               )}
             </div>
             <div className={card}>
-              <h3 className="mb-4 text-base font-semibold text-slate-900 dark:text-white">Completion Status<InfoTip content="How many deliverables are marked complete vs still in progress." /></h3>
+              <h3 className="mb-4 text-base font-semibold text-slate-900 dark:text-white">Workflow Status<InfoTip content="How many deliverables are marked complete vs still in progress." /></h3>
               <div className="mx-auto h-56 w-56">
                 <Doughnut data={statusChartData} options={doughnutOptions} />
               </div>

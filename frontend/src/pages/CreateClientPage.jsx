@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, X } from 'lucide-react'
 import { createClient } from '../api'
 import { useNotifications } from '../contexts/NotificationsContext'
 import { InfoTip } from '../components/Tooltip'
@@ -14,6 +14,7 @@ const initialForm = {
   price_thumbnail: 10,
   price_video: 50,
   notes: '',
+  info_sections: [],
 }
 
 export function CreateClientPage() {
@@ -35,6 +36,7 @@ export function CreateClientPage() {
       const client = await createClient({
         name: form.name.trim(),
         notes: form.notes.trim() || null,
+        info_sections: form.info_sections.filter(s => s.title.trim() || s.body.trim()).map(s => ({ ...s, title: s.title.trim(), body: s.body.trim() })) || null,
         socials: Object.keys(socials).length ? socials : null,
         price_short: Number(form.price_short),
         price_thumbnail: Number(form.price_thumbnail),
@@ -73,10 +75,45 @@ export function CreateClientPage() {
               <span className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">Client Name</span>
               <input required type="text" placeholder="e.g. NeroZYN" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className={inputClass} />
             </label>
-            <label className="block">
-              <span className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">Notes</span>
-              <textarea rows={3} placeholder="Optional notes about this client" value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} className={`${inputClass} resize-none`} />
-            </label>
+            <div>
+              <span className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">Client Info</span>
+              {form.info_sections.map((section, i) => (
+                <div key={i} className="mb-3 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+                  <div className="flex items-center gap-2 mb-2">
+                    <input
+                      type="text"
+                      placeholder="Category name (e.g. Preferences, Schedule)"
+                      value={section.title}
+                      onChange={(e) => {
+                        const updated = [...form.info_sections]
+                        updated[i] = { ...updated[i], title: e.target.value }
+                        setForm((f) => ({ ...f, info_sections: updated }))
+                      }}
+                      className={inputClass}
+                    />
+                    <button type="button" onClick={() => {
+                      setForm((f) => ({ ...f, info_sections: f.info_sections.filter((_, idx) => idx !== i) }))
+                    }} className="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-rose-500 dark:hover:bg-slate-800">
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <textarea
+                    rows={2}
+                    placeholder="Details..."
+                    value={section.body}
+                    onChange={(e) => {
+                      const updated = [...form.info_sections]
+                      updated[i] = { ...updated[i], body: e.target.value }
+                      setForm((f) => ({ ...f, info_sections: updated }))
+                    }}
+                    className={`${inputClass} resize-none`}
+                  />
+                </div>
+              ))}
+              <button type="button" onClick={() => setForm((f) => ({ ...f, info_sections: [...f.info_sections, { id: crypto.randomUUID(), title: '', body: '' }] }))} className="mt-1 text-sm font-medium text-violet-600 hover:text-violet-700 dark:text-violet-400">
+                + Add section
+              </button>
+            </div>
           </div>
 
           <div className="border-t border-slate-200 pt-6 dark:border-slate-800">

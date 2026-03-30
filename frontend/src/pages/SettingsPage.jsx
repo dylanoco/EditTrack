@@ -36,6 +36,11 @@ export function SettingsPage() {
     window.location.reload()
   }
 
+  function restartSetup() {
+    localStorage.removeItem('edittrack_setup_dismissed')
+    window.location.href = '/dashboard'
+  }
+
   return (
     <div className="mx-auto max-w-2xl space-y-6" data-tour="settings">
       {/* Profile */}
@@ -125,13 +130,22 @@ export function SettingsPage() {
             <p className="text-sm text-slate-500">Get a guided tour of EditTrack's features.</p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={restartTour}
-          className="rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-violet-700"
-        >
-          Take Tour
-        </button>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={restartTour}
+            className="rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-violet-700"
+          >
+            Take Tour
+          </button>
+          <button
+            type="button"
+            onClick={restartSetup}
+            className="rounded-xl border border-violet-300 px-4 py-2.5 text-sm font-semibold text-violet-600 hover:bg-violet-50 dark:border-violet-500/30 dark:text-violet-400 dark:hover:bg-violet-500/10"
+          >
+            Setup Guide
+          </button>
+        </div>
       </div>
     </div>
   )

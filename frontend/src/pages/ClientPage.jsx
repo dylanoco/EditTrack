@@ -9,7 +9,7 @@ import { InfoTip } from '../components/Tooltip'
 
 const initialDeliverable = {
   type: 'short', title: '', description: '', source_id: null, source_title: '',
-  duration_sec: null, source_url: '', status: 'incomplete', price_mode: 'auto', price_value: '',
+  duration_sec: null, source_url: '', status: 'todo', price_mode: 'auto', price_value: '',
 }
 
 export function ClientPage() {
@@ -120,6 +120,20 @@ export function ClientPage() {
         <span className="text-sm text-slate-500">Paid: <strong className="text-emerald-600 dark:text-emerald-400">${totals.paid.toFixed(2)}</strong></span>
         <span className="text-sm text-slate-500">Unpaid: <strong className="text-amber-600 dark:text-amber-400">${totals.unpaid.toFixed(2)}</strong></span>
       </div>
+
+      {client.info_sections?.length > 0 && (
+        <div className={card}>
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Client Info</h2>
+          <div className="space-y-4">
+            {client.info_sections.map((section, i) => (
+              <div key={section.id || i}>
+                <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300">{section.title}</h3>
+                <p className="mt-1 whitespace-pre-wrap text-sm text-slate-500 dark:text-slate-400">{section.body}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className={`mx-auto max-w-xl ${card}`} data-tour="create-deliverable">
         <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-6">Create deliverable</h2>

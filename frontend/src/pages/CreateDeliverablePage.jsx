@@ -8,7 +8,7 @@ import { InfoTip } from '../components/Tooltip'
 
 const initialForm = {
   client_id: '', type: 'short', title: '', description: '', source_id: null,
-  source_title: '', duration_sec: null, source_url: '', status: 'incomplete',
+  source_title: '', duration_sec: null, source_url: '', status: 'todo',
   price_mode: 'auto', price_value: '',
 }
 

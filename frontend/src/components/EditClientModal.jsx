@@ -9,6 +9,7 @@ export function EditClientModal({ client, onSave, onClose }) {
   const [form, setForm] = useState({
     name: '', notes: '', twitch: '', youtube: '', discord: '',
     price_short: '', price_thumbnail: '', price_video: '',
+    info_sections: [],
   })
   const [error, setError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
@@ -24,6 +25,7 @@ export function EditClientModal({ client, onSave, onClose }) {
         price_short: client.price_short != null ? String(client.price_short) : '',
         price_thumbnail: client.price_thumbnail != null ? String(client.price_thumbnail) : '',
         price_video: client.price_video != null ? String(client.price_video) : '',
+        info_sections: client.info_sections || [],
       })
     }
   }, [client])
@@ -41,6 +43,7 @@ export function EditClientModal({ client, onSave, onClose }) {
       await updateClient(client.id, {
         name: form.name.trim(),
         notes: form.notes.trim() || null,
+        info_sections: form.info_sections.filter(s => s.title.trim() || s.body.trim()).map(s => ({ ...s, title: s.title.trim(), body: s.body.trim() })) || null,
         socials: Object.keys(socials).length ? socials : null,
         price_short: form.price_short !== '' ? Number(form.price_short) : null,
         price_thumbnail: form.price_thumbnail !== '' ? Number(form.price_thumbnail) : null,
@@ -75,10 +78,45 @@ export function EditClientModal({ client, onSave, onClose }) {
               <span className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">Client Name</span>
               <input required type="text" placeholder="e.g. NeroZYN" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className={inputClass} />
             </label>
-            <label className="block">
-              <span className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">Notes</span>
-              <textarea rows={3} placeholder="Optional notes" value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} className={`${inputClass} resize-none`} />
-            </label>
+            <div>
+              <span className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">Client Info</span>
+              {form.info_sections.map((section, i) => (
+                <div key={i} className="mb-3 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+                  <div className="flex items-center gap-2 mb-2">
+                    <input
+                      type="text"
+                      placeholder="Category name (e.g. Preferences, Schedule)"
+                      value={section.title}
+                      onChange={(e) => {
+                        const updated = [...form.info_sections]
+                        updated[i] = { ...updated[i], title: e.target.value }
+                        setForm((f) => ({ ...f, info_sections: updated }))
+                      }}
+                      className={inputClass}
+                    />
+                    <button type="button" onClick={() => {
+                      setForm((f) => ({ ...f, info_sections: f.info_sections.filter((_, idx) => idx !== i) }))
+                    }} className="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-rose-500 dark:hover:bg-slate-800">
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <textarea
+                    rows={2}
+                    placeholder="Details..."
+                    value={section.body}
+                    onChange={(e) => {
+                      const updated = [...form.info_sections]
+                      updated[i] = { ...updated[i], body: e.target.value }
+                      setForm((f) => ({ ...f, info_sections: updated }))
+                    }}
+                    className={`${inputClass} resize-none`}
+                  />
+                </div>
+              ))}
+              <button type="button" onClick={() => setForm((f) => ({ ...f, info_sections: [...f.info_sections, { id: crypto.randomUUID(), title: '', body: '' }] }))} className="mt-1 text-sm font-medium text-violet-600 hover:text-violet-700 dark:text-violet-400">
+                + Add section
+              </button>
+            </div>
           </div>
           <div className="border-t border-slate-200 pt-6 dark:border-slate-800">
             <h2 className="mb-4 text-base font-semibold text-slate-900 dark:text-white">Socials</h2>
