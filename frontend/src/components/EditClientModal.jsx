@@ -80,39 +80,41 @@ export function EditClientModal({ client, onSave, onClose }) {
             </label>
             <div>
               <span className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">Client Info</span>
-              {form.info_sections.map((section, i) => (
-                <div key={i} className="mb-3 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                  <div className="flex items-center gap-2 mb-2">
-                    <input
-                      type="text"
-                      placeholder="Category name (e.g. Preferences, Schedule)"
-                      value={section.title}
+              <div className="max-h-64 overflow-y-auto">
+                {form.info_sections.map((section, i) => (
+                  <div key={i} className="mb-3 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+                    <div className="flex items-center gap-2 mb-2">
+                      <input
+                        type="text"
+                        placeholder="Category name (e.g. Preferences, Schedule)"
+                        value={section.title}
+                        onChange={(e) => {
+                          const updated = [...form.info_sections]
+                          updated[i] = { ...updated[i], title: e.target.value }
+                          setForm((f) => ({ ...f, info_sections: updated }))
+                        }}
+                        className={inputClass}
+                      />
+                      <button type="button" onClick={() => {
+                        setForm((f) => ({ ...f, info_sections: f.info_sections.filter((_, idx) => idx !== i) }))
+                      }} className="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-rose-500 dark:hover:bg-slate-800">
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <textarea
+                      rows={2}
+                      placeholder="Details..."
+                      value={section.body}
                       onChange={(e) => {
                         const updated = [...form.info_sections]
-                        updated[i] = { ...updated[i], title: e.target.value }
+                        updated[i] = { ...updated[i], body: e.target.value }
                         setForm((f) => ({ ...f, info_sections: updated }))
                       }}
-                      className={inputClass}
+                      className={`${inputClass} resize-none`}
                     />
-                    <button type="button" onClick={() => {
-                      setForm((f) => ({ ...f, info_sections: f.info_sections.filter((_, idx) => idx !== i) }))
-                    }} className="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-rose-500 dark:hover:bg-slate-800">
-                      <X className="h-4 w-4" />
-                    </button>
                   </div>
-                  <textarea
-                    rows={2}
-                    placeholder="Details..."
-                    value={section.body}
-                    onChange={(e) => {
-                      const updated = [...form.info_sections]
-                      updated[i] = { ...updated[i], body: e.target.value }
-                      setForm((f) => ({ ...f, info_sections: updated }))
-                    }}
-                    className={`${inputClass} resize-none`}
-                  />
-                </div>
-              ))}
+                ))}
+              </div>
               <button type="button" onClick={() => setForm((f) => ({ ...f, info_sections: [...f.info_sections, { id: crypto.randomUUID(), title: '', body: '' }] }))} className="mt-1 text-sm font-medium text-violet-600 hover:text-violet-700 dark:text-violet-400">
                 + Add section
               </button>

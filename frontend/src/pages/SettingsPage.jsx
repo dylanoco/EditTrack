@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Moon, Palette, Sun, User, Play } from 'lucide-react'
 import { useTheme } from '../contexts/ThemeContext'
 import { useAuth } from '../contexts/AuthContext'
 import { updateProfile } from '../api'
 
 export function SettingsPage() {
+  const navigate = useNavigate()
   const { theme, setTheme } = useTheme()
   const { user, updateUser } = useAuth()
   const [displayName, setDisplayName] = useState(user?.display_name ?? '')
@@ -32,13 +34,13 @@ export function SettingsPage() {
     'w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:placeholder-slate-500'
 
   function restartTour() {
-    localStorage.removeItem('edittrack_onboarding_complete')
-    window.location.reload()
+    localStorage.setItem('edittrack_tour_pending', 'true')
+    navigate('/dashboard')
   }
 
-  function restartSetup() {
-    localStorage.removeItem('edittrack_setup_dismissed')
-    window.location.href = '/dashboard'
+  function restartOnboarding() {
+    localStorage.removeItem('edittrack_onboarding_complete')
+    navigate('/onboarding')
   }
 
   return (
@@ -140,10 +142,10 @@ export function SettingsPage() {
           </button>
           <button
             type="button"
-            onClick={restartSetup}
+            onClick={restartOnboarding}
             className="rounded-xl border border-violet-300 px-4 py-2.5 text-sm font-semibold text-violet-600 hover:bg-violet-50 dark:border-violet-500/30 dark:text-violet-400 dark:hover:bg-violet-500/10"
           >
-            Setup Guide
+            Restart Onboarding
           </button>
         </div>
       </div>

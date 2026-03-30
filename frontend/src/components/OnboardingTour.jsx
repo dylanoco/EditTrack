@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Joyride, STATUS, ACTIONS } from 'react-joyride'
 import { useLocation } from 'react-router-dom'
 
-const STORAGE_KEY = 'edittrack_onboarding_complete'
+const STORAGE_KEY = 'edittrack_tour_pending'
 
 const steps = [
   {
@@ -123,50 +123,32 @@ const tooltipStyles = {
   },
 }
 
+/**
+ * Tour only runs when manually triggered via Settings ("Take Tour").
+ * Settings sets a localStorage flag; this component picks it up on /dashboard
+ * and clears it after running.
+ */
 export function OnboardingTour() {
   const [run, setRun] = useState(false)
-  const [completed, setCompleted] = useState(false)
   const location = useLocation()
 
-  const markCompleted = useCallback(() => {
-    setRun(false)
-    setCompleted(true)
-    try {
-      localStorage.setItem(STORAGE_KEY, 'true')
-    } catch {
-      // Ignore storage failures (private mode, disabled storage, etc.)
-    }
-  }, [])
-
   useEffect(() => {
+    if (location.pathname !== '/dashboard') { setRun(false); return }
     try {
-      setCompleted(localStorage.getItem(STORAGE_KEY) === 'true')
-    } catch {
-      setCompleted(false)
-    }
-  }, [])
+      if (localStorage.getItem(STORAGE_KEY) === 'true') {
+        localStorage.removeItem(STORAGE_KEY)
+        const timer = setTimeout(() => setRun(true), 600)
+        return () => clearTimeout(timer)
+      }
+    } catch { /* noop */ }
+  }, [location.pathname])
 
-  useEffect(() => {
-    if (!completed && location.pathname === '/dashboard') {
-      const timer = setTimeout(() => setRun(true), 800)
-      return () => clearTimeout(timer)
-    } else {
+  const handleCallback = useCallback((data) => {
+    const { status, action, type } = data
+    if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status) || action === ACTIONS.CLOSE || type === 'tour:end') {
       setRun(false)
     }
-  }, [location.pathname, completed])
-
-  function handleJoyrideCallback(data) {
-    const { status, action, type } = data
-    if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status)) {
-      markCompleted()
-    }
-    if (action === ACTIONS.CLOSE) {
-      markCompleted()
-    }
-    if (type === 'tour:end') {
-      markCompleted()
-    }
-  }
+  }, [])
 
   return (
     <Joyride
@@ -177,15 +159,9 @@ export function OnboardingTour() {
       showProgress
       scrollToFirstStep
       disableOverlayClose={false}
-      callback={handleJoyrideCallback}
+      callback={handleCallback}
       styles={tooltipStyles}
-      locale={{
-        back: 'Back',
-        close: 'Close',
-        last: 'Finish',
-        next: 'Next',
-        skip: 'Skip tour',
-      }}
+      locale={{ back: 'Back', close: 'Close', last: 'Finish', next: 'Next', skip: 'Skip tour' }}
     />
   )
 }
