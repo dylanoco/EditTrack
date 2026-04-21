@@ -13,3 +13,5 @@ git push → live API + Postgres
 cd frontend
 npm install
 npm run dev
+```
+Hosted at: https://edittracker.netlify.app/login
