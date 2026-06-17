@@ -195,11 +195,11 @@ export function DashboardPage() {
   return (
     <div className="space-y-6" data-tour="dashboard">
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
         <select
           value={filters.client_id}
           onChange={(e) => setFilters((f) => ({ ...f, client_id: e.target.value }))}
-          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white sm:w-auto"
         >
           <option value="">All clients</option>
           {clients.map((c) => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
@@ -208,18 +208,18 @@ export function DashboardPage() {
           type="date"
           value={filters.period_start}
           onChange={(e) => setFilters((f) => ({ ...f, period_start: e.target.value }))}
-          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white sm:w-auto"
         />
         <input
           type="date"
           value={filters.period_end}
           onChange={(e) => setFilters((f) => ({ ...f, period_end: e.target.value }))}
-          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white sm:w-auto"
         />
         <button
           type="button"
           onClick={refresh}
-          className="rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 shadow-sm"
+          className="w-full rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-violet-700 shadow-sm sm:w-auto"
         >
           Apply
         </button>
@@ -334,7 +334,7 @@ export function DashboardPage() {
             </div>
             <div className={card}>
               <h3 className="mb-4 text-base font-semibold text-slate-900 dark:text-white">Deliverables by Type<InfoTip content="Distribution of deliverables across shorts, thumbnails, and videos." /></h3>
-              <div className="mx-auto h-56 w-56">
+              <div className="mx-auto h-48 w-full max-w-56 sm:h-56 sm:w-56">
                 <Doughnut data={typeChartData} options={doughnutOptions} />
               </div>
             </div>
@@ -354,7 +354,7 @@ export function DashboardPage() {
             </div>
             <div className={card}>
               <h3 className="mb-4 text-base font-semibold text-slate-900 dark:text-white">Workflow Status<InfoTip content="How many deliverables are marked complete vs still in progress." /></h3>
-              <div className="mx-auto h-56 w-56">
+              <div className="mx-auto h-48 w-full max-w-56 sm:h-56 sm:w-56">
                 <Doughnut data={statusChartData} options={doughnutOptions} />
               </div>
             </div>

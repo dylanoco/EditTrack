@@ -11,6 +11,7 @@ import {
   Receipt,
   Settings,
   Users,
+  X,
 } from 'lucide-react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
@@ -45,7 +46,7 @@ const bottomNavItems = [
   { to: '/billing', label: 'Billing', icon: Receipt },
 ]
 
-function ExpandableNavItem({ icon: Icon, label, basePath, items, collapsed }) {
+function ExpandableNavItem({ icon: Icon, label, basePath, items, collapsed, onNavigate }) {
   const location = useLocation()
   const isActive = location.pathname.startsWith(basePath)
   const [expanded, setExpanded] = useState(isActive)
@@ -58,6 +59,7 @@ function ExpandableNavItem({ icon: Icon, label, basePath, items, collapsed }) {
     return (
       <NavLink
         to={items[0]?.to || basePath}
+        onClick={onNavigate}
         className={({ isActive: linkActive }) =>
           clsx(
             'flex items-center justify-center rounded-xl p-2.5 transition-all duration-200',
@@ -102,9 +104,10 @@ function ExpandableNavItem({ icon: Icon, label, basePath, items, collapsed }) {
             key={to}
             to={to}
             end={end}
+            onClick={onNavigate}
             className={({ isActive: subActive }) =>
               clsx(
-                'flex items-center rounded-lg px-3 py-2 text-sm transition-all duration-200',
+                'flex items-center rounded-lg px-3 py-2.5 text-sm transition-all duration-200',
                 subActive
                   ? 'font-medium text-violet-400'
                   : 'text-slate-500 hover:text-slate-300'
@@ -119,15 +122,17 @@ function ExpandableNavItem({ icon: Icon, label, basePath, items, collapsed }) {
   )
 }
 
-export function Sidebar({ collapsed, onToggle }) {
+export function Sidebar({ collapsed, mobileOpen, onCloseMobile, onToggle }) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const [profileOpen, setProfileOpen] = useState(false)
 
+  const showCollapsed = collapsed && !mobileOpen
+
   const linkClass = (isActive) =>
     clsx(
       'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200',
-      collapsed && 'justify-center px-0',
+      showCollapsed && 'justify-center px-0',
       isActive
         ? 'bg-violet-500/15 text-violet-400 shadow-[inset_0_0_0_1px_rgba(139,92,246,0.2)]'
         : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
@@ -137,19 +142,30 @@ export function Sidebar({ collapsed, onToggle }) {
     <aside
       data-tour="sidebar"
       className={clsx(
-        'fixed inset-y-0 left-0 z-30 flex flex-col border-r border-slate-800/60 bg-slate-900 transition-all duration-300',
-        collapsed ? 'w-18' : 'w-64'
+        'fixed inset-y-0 left-0 z-40 flex flex-col border-r border-slate-800/60 bg-slate-900 transition-transform duration-300',
+        showCollapsed ? 'w-64 lg:w-18' : 'w-64',
+        mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
       )}
     >
       {/* Brand */}
-      <div className={clsx('flex items-center border-b border-slate-800/60 px-4 py-4', collapsed && 'justify-center px-2')}>
+      <div className={clsx('flex items-center border-b border-slate-800/60 px-4 py-4', showCollapsed && 'lg:justify-center lg:px-2')}>
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-violet-500 to-violet-700 text-sm font-bold text-white shadow-lg shadow-violet-500/20">
           ET
         </div>
-        {!collapsed && (
-          <div className="ml-3">
-            <p className="text-sm font-semibold text-white">EditTrack</p>
-            <p className="text-[11px] text-slate-500">Editor toolkit</p>
+        {(!showCollapsed || mobileOpen) && (
+          <div className="ml-3 flex flex-1 items-center justify-between min-w-0">
+            <div>
+              <p className="text-sm font-semibold text-white">EditTrack</p>
+              <p className="text-[11px] text-slate-500">Editor toolkit</p>
+            </div>
+            <button
+              type="button"
+              onClick={onCloseMobile}
+              className="rounded-lg p-2 text-slate-400 hover:bg-white/5 hover:text-white lg:hidden"
+              aria-label="Close menu"
+            >
+              <X className="h-5 w-5" />
+            </button>
           </div>
         )}
       </div>
@@ -157,41 +173,40 @@ export function Sidebar({ collapsed, onToggle }) {
       {/* Nav */}
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
         {navItems.map(({ to, label, icon: Icon }) => (
-          <NavLink key={to} to={to} className={({ isActive }) => linkClass(isActive)} title={collapsed ? label : undefined}>
+          <NavLink key={to} to={to} onClick={onCloseMobile} className={({ isActive }) => linkClass(isActive)} title={showCollapsed ? label : undefined}>
             <Icon className="h-5 w-5 shrink-0" />
-            {!collapsed && label}
+            {(!showCollapsed || mobileOpen) && label}
           </NavLink>
         ))}
 
         {expandableItems.map((item) => (
-          <ExpandableNavItem key={item.basePath} {...item} collapsed={collapsed} />
+          <ExpandableNavItem key={item.basePath} {...item} collapsed={showCollapsed && !mobileOpen} onNavigate={onCloseMobile} />
         ))}
 
         <div className="my-3 border-t border-slate-800/60" />
 
         {bottomNavItems.map(({ to, label, icon: Icon }) => (
-          <NavLink key={to} to={to} className={({ isActive }) => linkClass(isActive)} title={collapsed ? label : undefined}>
+          <NavLink key={to} to={to} onClick={onCloseMobile} className={({ isActive }) => linkClass(isActive)} title={showCollapsed ? label : undefined}>
             <Icon className="h-5 w-5 shrink-0" />
-            {!collapsed && label}
+            {(!showCollapsed || mobileOpen) && label}
           </NavLink>
         ))}
       </nav>
 
       {/* Bottom: Profile + Collapse */}
       <div className="border-t border-slate-800/60 p-3 space-y-2">
-        <NavLink to="/settings" className={({ isActive }) => linkClass(isActive)} title={collapsed ? 'Settings' : undefined}>
+        <NavLink to="/settings" onClick={onCloseMobile} className={({ isActive }) => linkClass(isActive)} title={showCollapsed ? 'Settings' : undefined}>
           <Settings className="h-5 w-5 shrink-0" />
-          {!collapsed && 'Settings'}
+          {(!showCollapsed || mobileOpen) && 'Settings'}
         </NavLink>
 
-        {/* Profile */}
         <div className="relative">
           <button
             type="button"
             onClick={() => setProfileOpen(!profileOpen)}
             className={clsx(
               'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200 hover:bg-white/5',
-              collapsed && 'justify-center px-0'
+              showCollapsed && 'lg:justify-center lg:px-0'
             )}
           >
             {user?.avatar_url ? (
@@ -201,7 +216,7 @@ export function Sidebar({ collapsed, onToggle }) {
                 {(user?.display_name || user?.email || '?')[0].toUpperCase()}
               </div>
             )}
-            {!collapsed && (
+            {(!showCollapsed || mobileOpen) && (
               <>
                 <div className="flex-1 text-left min-w-0">
                   <p className="truncate text-sm font-medium text-slate-200">
@@ -218,14 +233,14 @@ export function Sidebar({ collapsed, onToggle }) {
               <div className="absolute bottom-full left-0 z-20 mb-1 w-48 rounded-xl border border-slate-700 bg-slate-800 py-1.5 shadow-xl">
                 <button
                   type="button"
-                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-slate-300 hover:bg-slate-700/50 hover:text-white"
-                  onClick={() => { setProfileOpen(false); navigate('/settings') }}
+                  className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-slate-300 hover:bg-slate-700/50 hover:text-white"
+                  onClick={() => { setProfileOpen(false); onCloseMobile(); navigate('/settings') }}
                 >
                   <Settings className="h-4 w-4" /> Settings
                 </button>
                 <button
                   type="button"
-                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-rose-400 hover:bg-rose-500/10 hover:text-rose-300"
+                  className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-rose-400 hover:bg-rose-500/10 hover:text-rose-300"
                   onClick={() => { setProfileOpen(false); logout(); navigate('/login') }}
                 >
                   <LogOut className="h-4 w-4" /> Sign out
@@ -235,11 +250,10 @@ export function Sidebar({ collapsed, onToggle }) {
           )}
         </div>
 
-        {/* Collapse toggle */}
         <button
           type="button"
           onClick={onToggle}
-          className="flex w-full items-center justify-center rounded-xl p-2 text-slate-500 hover:bg-white/5 hover:text-slate-300 transition-all duration-200"
+          className="hidden w-full items-center justify-center rounded-xl p-2.5 text-slate-500 hover:bg-white/5 hover:text-slate-300 transition-all duration-200 lg:flex"
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}

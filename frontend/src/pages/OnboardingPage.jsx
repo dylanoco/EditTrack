@@ -204,7 +204,7 @@ export function OnboardingPage() {
 
                   <div>
                     <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">Your rates <span className="text-slate-400 font-normal">(per deliverable)</span></span>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                       <label className="block">
                         <span className="mb-1 block text-center text-xs text-slate-500">Thumbnail</span>
                         <div className="relative">

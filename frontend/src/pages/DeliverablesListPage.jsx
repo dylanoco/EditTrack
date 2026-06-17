@@ -161,8 +161,8 @@ export function DeliverablesListPage() {
   }, [sources, sourceSort])
 
   const inputClass = 'w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white'
-  const dd = 'rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-800 dark:text-white'
-  const pill = (active) => `shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium capitalize transition-all ${active ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-white' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`
+  const dd = 'w-full min-w-0 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white sm:w-auto sm:py-1.5 sm:text-xs'
+  const pill = (active) => `shrink-0 rounded-lg px-3 py-2 text-xs font-medium capitalize transition-all sm:py-1.5 ${active ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-white' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`
 
   function SortHeader({ field, children, className = '' }) {
     const active = sortBy === field
@@ -185,36 +185,34 @@ export function DeliverablesListPage() {
 
   return (
     <div className="space-y-6" data-tour="deliverables">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Deliverables</h1>
+          <h1 className="text-xl font-bold text-slate-900 dark:text-white sm:text-2xl">Deliverables</h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
             {deliverables.length} result{deliverables.length !== 1 ? 's' : ''}
             {hasActiveFilters && ' (filtered)'}
           </p>
         </div>
-        <Link to="/deliverables/create" className="flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-violet-700"><Plus className="h-4 w-4" /> Create deliverable</Link>
+        <Link to="/deliverables/create" className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-violet-700 sm:w-auto"><Plus className="h-4 w-4" /> Create deliverable</Link>
       </div>
 
       {error && <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 dark:border-rose-800 dark:bg-rose-900/20 dark:text-rose-300">{error}</div>}
 
       {/* Totals + filters — single compact bar */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-          {/* Revenue totals */}
-          <div className="flex items-center gap-4 mr-auto">
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4">
             <span className="text-sm text-slate-500">Paid: <strong className="text-emerald-600 dark:text-emerald-400">${totals.paid.toFixed(2)}</strong></span>
             <span className="text-sm text-slate-500">Unpaid: <strong className="text-amber-600 dark:text-amber-400">${totals.unpaid.toFixed(2)}</strong></span>
           </div>
 
-          {/* Payment toggle pills */}
-          <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 dark:border-slate-700 dark:bg-slate-800">
+          <div className="inline-flex w-full overflow-x-auto rounded-lg border border-slate-200 bg-slate-50 p-0.5 dark:border-slate-700 dark:bg-slate-800 sm:w-auto">
             {['all', 'paid', 'unpaid', 'partial'].map((v) => (
               <button key={v} type="button" onClick={() => setFilterPayment(v)} className={pill(filterPayment === v)}>{v}</button>
             ))}
           </div>
 
-          {/* Dropdowns */}
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-2">
           <select value={filterWorkflow} onChange={(e) => setFilterWorkflow(e.target.value)} className={dd}>
             <option value="">Status</option>
             <option value="todo">Todo</option>
@@ -241,10 +239,11 @@ export function DeliverablesListPage() {
           </select>
 
           {hasActiveFilters && (
-            <button type="button" onClick={resetFilters} className="inline-flex items-center gap-1 text-xs font-medium text-violet-600 hover:text-violet-700 dark:text-violet-400">
+            <button type="button" onClick={resetFilters} className="col-span-2 inline-flex items-center justify-center gap-1 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-violet-600 hover:bg-violet-50 dark:border-slate-700 dark:text-violet-400 dark:hover:bg-violet-500/10 sm:col-span-1 sm:w-auto sm:border-0 sm:py-1.5">
               <RotateCcw className="h-3 w-3" /> Reset
             </button>
           )}
+          </div>
         </div>
       </div>
 
@@ -323,7 +322,7 @@ export function DeliverablesListPage() {
                   <SortHeader field="status">Status</SortHeader>
                   <SortHeader field="payment_status">Payment</SortHeader>
                   <SortHeader field="price_value">Price</SortHeader>
-                  <th className="w-52 px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-slate-400">Actions</th>
+                  <th className="w-40 px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-slate-400 sm:w-52">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -349,11 +348,11 @@ export function DeliverablesListPage() {
                       </td>
                       <td className="px-4 py-3.5 text-sm font-semibold text-slate-900 dark:text-white">{d.price_value != null ? `$${Number(d.price_value).toFixed(2)}` : '—'}</td>
                       <td className="px-4 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-end gap-2">
-                          {d.source_url && <a href={d.source_url} target="_blank" rel="noopener noreferrer" className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-violet-600 dark:hover:bg-slate-800" title="Open source"><ExternalLink className="h-3.5 w-3.5" /></a>}
-                          {!d.invoiced && d.price_value != null && <button type="button" onClick={() => handleInvoiceSingle(d.id)} className="rounded-lg px-2.5 py-1 text-xs font-medium text-violet-600 hover:bg-violet-50 dark:text-violet-400 dark:hover:bg-violet-500/10">Invoice</button>}
-                          <button type="button" onClick={() => openEdit(d)} className="rounded-lg bg-violet-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-violet-700">Edit</button>
-                          <button type="button" onClick={() => archive(d.id)} className="rounded-lg px-2.5 py-1 text-xs font-medium text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800">Archive</button>
+                        <div className="flex items-center justify-end gap-1.5 sm:gap-2">
+                          {d.source_url && <a href={d.source_url} target="_blank" rel="noopener noreferrer" className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-violet-600 dark:hover:bg-slate-800" title="Open source"><ExternalLink className="h-4 w-4" /></a>}
+                          {!d.invoiced && d.price_value != null && <button type="button" onClick={() => handleInvoiceSingle(d.id)} className="rounded-lg px-2.5 py-2 text-xs font-medium text-violet-600 hover:bg-violet-50 dark:text-violet-400 dark:hover:bg-violet-500/10 sm:py-1">Invoice</button>}
+                          <button type="button" onClick={() => openEdit(d)} className="rounded-lg bg-violet-600 px-2.5 py-2 text-xs font-medium text-white hover:bg-violet-700 sm:py-1">Edit</button>
+                          <button type="button" onClick={() => archive(d.id)} className="hidden rounded-lg px-2.5 py-2 text-xs font-medium text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 sm:inline sm:py-1">Archive</button>
                         </div>
                       </td>
                     </tr>

@@ -25,3 +25,5 @@ Thumbs.db
 #Other
 docs/migrations/
 .gitignore
+backend/scripts/seed_user_2_dummy.py
+backend/scripts/seed_user_2_march_only.py

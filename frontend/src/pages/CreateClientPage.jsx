@@ -138,7 +138,7 @@ export function CreateClientPage() {
 
           <div className="border-t border-slate-200 pt-6 dark:border-slate-800">
             <h2 className="mb-4 text-base font-semibold text-slate-900 dark:text-white">Rates<InfoTip content="Default per-type pricing for this client. Used when a deliverable's price mode is set to 'Auto'." /></h2>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <label className="block">
                 <span className="mb-1.5 block text-center text-sm font-medium text-slate-700 dark:text-slate-300">Thumbnail</span>
                 <input type="number" step="0.01" min="0" value={form.price_thumbnail} onChange={(e) => setForm((f) => ({ ...f, price_thumbnail: e.target.value }))} className={inputClass} />

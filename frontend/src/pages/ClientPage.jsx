@@ -97,18 +97,18 @@ export function ClientPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
           <Link to="/clients" className="inline-flex items-center gap-1.5 text-sm font-medium text-violet-600 hover:text-violet-700 dark:text-violet-400 mb-2">
             <ArrowLeft className="h-4 w-4" /> Back to clients
           </Link>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{client.name}</h1>
+          <h1 className="truncate text-xl font-bold text-slate-900 dark:text-white sm:text-2xl">{client.name}</h1>
         </div>
         <div className="flex gap-2">
-          <Link to={`/billing?client_id=${clientId}`} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800">
+          <Link to={`/billing?client_id=${clientId}`} className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-center text-sm font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 sm:flex-none">
             Create invoice
           </Link>
-          <button type="button" onClick={() => setEditClientModalOpen(true)} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800">
+          <button type="button" onClick={() => setEditClientModalOpen(true)} className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 sm:flex-none">
             Edit client
           </button>
         </div>
@@ -162,7 +162,7 @@ export function ClientPage() {
       {/* Recent deliverables table */}
       {deliverables.length > 0 && (
         <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden dark:border-slate-800 dark:bg-slate-900">
-          <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800">
+          <div className="px-4 py-4 border-b border-slate-200 dark:border-slate-800 sm:px-6">
             <h2 className="text-base font-semibold text-slate-900 dark:text-white">Recent deliverables</h2>
           </div>
           <div className="overflow-x-auto">

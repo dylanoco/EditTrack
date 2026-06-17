@@ -36,9 +36,9 @@ export function ClientsListPage() {
 
   return (
     <div className="space-y-6" data-tour="clients">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Clients</h1>
+          <h1 className="text-xl font-bold text-slate-900 dark:text-white sm:text-2xl">Clients</h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Manage your clients and their deliverables.</p>
         </div>
         <div className="flex gap-2">
@@ -52,7 +52,7 @@ export function ClientsListPage() {
           </button>
           <Link
             to="/clients/create"
-            className="flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-violet-700"
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-violet-700 sm:flex-none"
           >
             <Plus className="h-4 w-4" /> Create client
           </Link>
@@ -80,31 +80,31 @@ export function ClientsListPage() {
             {filtered.map((c) => (
               <div
                 key={c.id}
-                className="flex items-center justify-between px-6 py-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer"
+                className="flex flex-col gap-3 px-4 py-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer sm:flex-row sm:items-center sm:justify-between sm:px-6"
                 onClick={() => navigate(`/clients/${c.id}`)}
               >
-                <div className="flex items-center gap-4">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 text-sm font-bold text-violet-600 dark:bg-violet-500/15 dark:text-violet-400">
+                <div className="flex min-w-0 items-center gap-4">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-sm font-bold text-violet-600 dark:bg-violet-500/15 dark:text-violet-400">
                     {c.name[0]?.toUpperCase()}
                   </div>
-                  <div>
-                    <p className="font-semibold text-slate-900 dark:text-white">{c.name}</p>
-                    <p className="text-xs text-slate-400">
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-slate-900 dark:text-white">{c.name}</p>
+                    <p className="truncate text-xs text-slate-400">
                       {c.socials?.twitch ? `Twitch: ${c.socials.twitch}` : 'No Twitch set'}
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center gap-2 sm:shrink-0" onClick={(e) => e.stopPropagation()}>
                   <button
                     type="button"
                     onClick={() => setEditingClient(c)}
-                    className="rounded-xl border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
+                    className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 sm:flex-none sm:py-1.5"
                   >
                     Edit
                   </button>
                   <Link
                     to={`/billing?client_id=${c.id}`}
-                    className="rounded-xl border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
+                    className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-center text-sm font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 sm:flex-none sm:py-1.5"
                   >
                     Invoice
                   </Link>

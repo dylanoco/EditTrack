@@ -1,5 +1,6 @@
+import { clsx } from 'clsx'
 import { useEffect, useState } from 'react'
-import { Outlet, useNavigate } from 'react-router-dom'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 import { OnboardingTour } from '../OnboardingTour'
@@ -9,7 +10,13 @@ const ONBOARDING_KEY = 'edittrack_onboarding_complete'
 
 export function Layout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const navigate = useNavigate()
+  const location = useLocation()
+
+  useEffect(() => {
+    setMobileMenuOpen(false)
+  }, [location.pathname])
 
   useEffect(() => {
     let cancelled = false
@@ -20,7 +27,7 @@ export function Layout() {
         if (!cancelled && status.client_count === 0) {
           navigate('/onboarding', { replace: true })
         }
-      } catch { /* ignore — network errors shouldn't block the app */ }
+      } catch { /* ignore */ }
     }
     check()
     return () => { cancelled = true }
@@ -29,10 +36,34 @@ export function Layout() {
   return (
     <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950">
       <OnboardingTour />
-      <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed((c) => !c)} />
-      <div className="flex flex-1 flex-col min-w-0" style={{ marginLeft: sidebarCollapsed ? '4.5rem' : '16rem' }}>
-        <Topbar sidebarCollapsed={sidebarCollapsed} onToggleSidebar={() => setSidebarCollapsed((c) => !c)} />
-        <main className="flex-1 p-4 md:p-6 lg:p-8">
+
+      {mobileMenuOpen && (
+        <button
+          type="button"
+          aria-label="Close menu"
+          className="fixed inset-0 z-30 bg-black/50 backdrop-blur-sm lg:hidden"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
+      <Sidebar
+        collapsed={sidebarCollapsed}
+        mobileOpen={mobileMenuOpen}
+        onCloseMobile={() => setMobileMenuOpen(false)}
+        onToggle={() => setSidebarCollapsed((c) => !c)}
+      />
+
+      <div
+        className={clsx(
+          'flex min-w-0 flex-1 flex-col transition-[margin] duration-300',
+          sidebarCollapsed ? 'lg:ml-18' : 'lg:ml-64',
+        )}
+      >
+        <Topbar
+          pageTitle={location.pathname}
+          onOpenMobileMenu={() => setMobileMenuOpen(true)}
+        />
+        <main className="flex-1 p-4 sm:p-5 md:p-6 lg:p-8">
           <Outlet />
         </main>
       </div>

@@ -247,29 +247,31 @@ export function BillingPage() {
 
   return (
     <div className="space-y-6" data-tour="billing">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Billing</h1>
+          <h1 className="text-xl font-bold text-slate-900 dark:text-white sm:text-2xl">Billing</h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">View totals, create invoices, and export reports.</p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => { setExportInvoiceForm({ client_id: billingFilters.client_id || (clients[0] ? String(clients[0].id) : ''), period_start: billingFilters.period_start, period_end: billingFilters.period_end }); setExportInvoiceModalOpen(true) }} className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"><Download className="h-4 w-4" /> Export Report<InfoTip content="Export a detailed CSV for a specific client and date range, showing individual deliverables and totals." /></button>
-          <button type="button" onClick={exportInvoicedDeliverablesCsv} disabled={lineItemsExporting} className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"><Download className="h-4 w-4" />{lineItemsExporting ? 'Exporting…' : 'Invoiced deliverables'}<InfoTip content="CSV with one row per deliverable on an invoice (period batch or single-deliverable). Uses the client and date filters below; dates filter by invoice created date." /></button>
-          <button type="button" onClick={exportCsv} disabled={invoices.length === 0} className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"><Download className="h-4 w-4" /> Export CSV<InfoTip content="Download a summary CSV of all invoices currently shown in the table." /></button>
-          <button type="button" onClick={() => setCreateModalOpen(true)} className="flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-violet-700"><Plus className="h-4 w-4" /> Create invoice</button>
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+          <button type="button" onClick={() => { setExportInvoiceForm({ client_id: billingFilters.client_id || (clients[0] ? String(clients[0].id) : ''), period_start: billingFilters.period_start, period_end: billingFilters.period_end }); setExportInvoiceModalOpen(true) }} className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 sm:px-4"><Download className="h-4 w-4 shrink-0" /><span className="truncate">Export Report</span></button>
+          <button type="button" onClick={exportInvoicedDeliverablesCsv} disabled={lineItemsExporting} className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 sm:px-4"><Download className="h-4 w-4 shrink-0" /><span className="truncate">{lineItemsExporting ? 'Exporting…' : 'Invoiced'}</span></button>
+          <button type="button" onClick={exportCsv} disabled={invoices.length === 0} className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 sm:px-4"><Download className="h-4 w-4 shrink-0" /><span className="truncate">Export CSV</span></button>
+          <button type="button" onClick={() => setCreateModalOpen(true)} className="col-span-2 flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-violet-700 sm:col-span-1"><Plus className="h-4 w-4" /> Create invoice</button>
         </div>
       </div>
 
       {error && <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 dark:border-rose-800 dark:bg-rose-900/20 dark:text-rose-300">{error}</div>}
 
-      <div className="flex flex-wrap items-center gap-4">
-        <span className="text-sm text-slate-500">Paid: <strong className="text-emerald-600 dark:text-emerald-400">${billingTotals ? Number(billingTotals.paid_total).toFixed(2) : '0.00'}</strong><InfoTip content="Total revenue from paid deliverables in the selected period." /></span>
-        <span className="text-sm text-slate-500">Unpaid: <strong className="text-amber-600 dark:text-amber-400">${billingTotals ? Number(billingTotals.unpaid_total).toFixed(2) : '0.00'}</strong><InfoTip content="Total outstanding revenue from unpaid deliverables." /></span>
-        <div className="flex flex-nowrap items-center gap-3">
-          <select value={billingFilters.client_id} onChange={(e) => setBillingFilters((f) => ({ ...f, client_id: e.target.value }))} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"><option value="">All clients</option>{clients.map((c) => <option key={c.id} value={String(c.id)}>{c.name}</option>)}</select>
-          <input type="date" value={billingFilters.period_start} onChange={(e) => setBillingFilters((f) => ({ ...f, period_start: e.target.value }))} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
-          <input type="date" value={billingFilters.period_end} onChange={(e) => setBillingFilters((f) => ({ ...f, period_end: e.target.value }))} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
-          <button type="button" onClick={refresh} className="rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700">Apply</button>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+          <span className="text-sm text-slate-500">Paid: <strong className="text-emerald-600 dark:text-emerald-400">${billingTotals ? Number(billingTotals.paid_total).toFixed(2) : '0.00'}</strong></span>
+          <span className="text-sm text-slate-500">Unpaid: <strong className="text-amber-600 dark:text-amber-400">${billingTotals ? Number(billingTotals.unpaid_total).toFixed(2) : '0.00'}</strong></span>
+        </div>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-center lg:gap-3">
+          <select value={billingFilters.client_id} onChange={(e) => setBillingFilters((f) => ({ ...f, client_id: e.target.value }))} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white lg:w-auto"><option value="">All clients</option>{clients.map((c) => <option key={c.id} value={String(c.id)}>{c.name}</option>)}</select>
+          <input type="date" value={billingFilters.period_start} onChange={(e) => setBillingFilters((f) => ({ ...f, period_start: e.target.value }))} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white lg:w-auto" />
+          <input type="date" value={billingFilters.period_end} onChange={(e) => setBillingFilters((f) => ({ ...f, period_end: e.target.value }))} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white lg:w-auto" />
+          <button type="button" onClick={refresh} className="w-full rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-violet-700 lg:w-auto">Apply</button>
         </div>
       </div>
 
@@ -361,6 +363,7 @@ export function BillingPage() {
                   </div>
                   <h3 className="mb-3 text-base font-semibold text-slate-900 dark:text-white">Deliverables</h3>
                   {detailInvoice.items?.length ? (
+                    <div className="overflow-x-auto">
                     <table className="min-w-full">
                       <thead><tr className="border-b border-slate-100 dark:border-slate-800"><th className={th}>Title</th><th className={th}>Type</th><th className={th}>Date</th><th className={th}>Amount</th><th className={th}>Payment</th><th className={th}></th></tr></thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -379,6 +382,7 @@ export function BillingPage() {
                         })}
                       </tbody>
                     </table>
+                    </div>
                   ) : <p className="text-sm text-slate-400">No deliverables in this invoice.</p>}
                 </>
               ) : <div className="flex items-center justify-center py-12"><div className="h-6 w-6 animate-spin rounded-full border-2 border-violet-500 border-t-transparent" /></div>}
