@@ -1,0 +1,6 @@
+# Railway service root is often /backend — mise config must live here too.
+[tools]
+python = "3.12.12"
+
+[settings]
+python.github_attestations = false

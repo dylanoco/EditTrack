@@ -1,4 +1,6 @@
-# Railway/Railpack uses mise to install Python from .python-version.
-# Older Python builds (e.g. 3.12.0) may not have GitHub artifact attestations.
+# Used by Railway Railpack (mise). Keep in sync with backend/mise.toml.
+[tools]
+python = "3.12.12"
+
 [settings]
 python.github_attestations = false
